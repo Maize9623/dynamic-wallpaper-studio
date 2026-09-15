@@ -1,0 +1,14 @@
+Dynamic Wallpaper Studio / 动态壁纸工作室
+Copyright (C) 2026 Maize9623 and contributors
+
+This program is free software licensed under the GNU General Public License,
+version 3 or (at your option) any later version. See LICENSE.
+
+The Windows desktop-integration implementation references and adapts techniques
+from Lively Wallpaper by rocksdanister and contributors, licensed under GPL-3.0.
+Source: https://github.com/rocksdanister/lively
+
+The project can invoke independent FFmpeg and mpv executables and uses the
+Vulkan Loader distributed with upstream mpv Windows builds. Those components
+are not part of this repository and remain under their respective licenses.
+See THIRD_PARTY_NOTICES.md and windows/LICENSES/.

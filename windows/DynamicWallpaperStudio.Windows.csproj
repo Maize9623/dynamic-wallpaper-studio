@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>DynamicWallpaperStudio</AssemblyName>
+    <RootNamespace>DynamicWallpaperStudio</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/AppIcon.ico</ApplicationIcon>
+    <Version>1.0.4</Version>
+    <Authors>Maize9623 and contributors</Authors>
+    <Company>Maize9623</Company>
+    <Product>动态壁纸工作室</Product>
+    <Description>Windows 动态壁纸资料库与播放器（Preview）</Description>
+    <RepositoryUrl>https://github.com/Maize9623/dynamic-wallpaper-studio</RepositoryUrl>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <LangVersion>latest</LangVersion>
+    <!-- The manifest must establish PerMonitorV2 before WPF/WinForms or any raw
+         Screen/Win32 coordinate API is initialized. WFO0003 normally recommends
+         the WinForms startup API, which is intentionally not the authority here. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/AppIcon.png" />
+    <Content Include="Assets/AppIcon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Samples\StarterWallpaper.mp4" Condition="Exists('Samples\StarterWallpaper.mp4')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Samples\StarterPoster.jpg" Condition="Exists('Samples\StarterPoster.jpg')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Third-party executables are intentionally not committed. A source checkout
+         can still compile without them; scripts/fetch-dependencies.ps1 installs the
+         pinned, checksum-verified files required for a runnable publish. -->
+    <Content Include="tools\ffmpeg.exe" Condition="Exists('tools\ffmpeg.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\mpv.exe" Condition="Exists('tools\mpv.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\vulkan-1.dll" Condition="Exists('tools\vulkan-1.dll')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\ffprobe.exe" Condition="Exists('tools\ffprobe.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="LICENSES\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="portable.flag" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="使用说明.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="安全模式启动.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="紧急关闭动态壁纸.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

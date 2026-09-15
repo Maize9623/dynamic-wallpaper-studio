@@ -1,0 +1,44 @@
+mpv v0.41.0 Windows x86_64 build
+================================
+
+Optional downloaded binary: tools\mpv.exe
+Optional downloaded helper: tools\vulkan-1.dll
+Binary distributor: mpv project official GitHub release
+Release archive: mpv-v0.41.0-x86_64-pc-windows-msvc.zip
+Download page:
+https://github.com/mpv-player/mpv/releases/tag/v0.41.0
+
+Upstream project: https://mpv.io/
+Upstream source tag: https://github.com/mpv-player/mpv/tree/v0.41.0
+Upstream tag commit: 41f6a645068483470267271e1d09966ca3b9f413
+Upstream source archive:
+https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz
+
+Archive SHA-256:
+4e197f729f5071c6772f35fffd96e0f36e3e8a044bd9479b136bb09b7c6a80ff
+
+mpv.exe SHA-256:
+6145e63f026451a764077d53fd60860ec9f5c2bc76dcd6e62a88967ac375453d
+
+vulkan-1.dll SHA-256:
+2baae0a109cb5962437b00a182750308ce9f69f59381df62939c00c21150ee6b
+
+The dependency script downloads the player and vulkan-1.dll as unmodified files
+from the official mpv release archive after verifying the archive SHA-256. These
+files are not committed to the public source repository. Dynamic Wallpaper Studio communicates with mpv through its
+documented JSON IPC interface and does not link mpv into the application. See
+mpv-LICENSE.GPL.txt, mpv-LICENSE.LGPL.txt and mpv-Copyright.txt beside this
+notice. The mpv source tag, source archive, official Windows build script and
+upstream dependency repositories are referenced above/below. The official
+binary release itself was not rebuilt or modified by Dynamic Wallpaper Studio.
+
+Before public or commercial binary redistribution, archive the complete corresponding source for the
+exact official static build (including its pinned third-party dependencies) or
+obtain an appropriate written offer and legal review; the mpv tag alone does
+not contain every statically linked dependency revision.
+
+vulkan-1.dll is the Vulkan Loader built by mpv's official Windows build. Its
+source and build definition are available here:
+https://github.com/KhronosGroup/Vulkan-Loader
+https://github.com/mpv-player/mpv/blob/v0.41.0/ci/build-win32.ps1
+Its Apache 2.0 license is included as Vulkan-Loader-LICENSE.txt.

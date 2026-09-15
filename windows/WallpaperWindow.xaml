@@ -1,0 +1,11 @@
+<Window x:Class="DynamicWallpaperStudio.WallpaperWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
+        ShowActivated="False" Focusable="False" Background="Transparent"
+        Width="640" Height="360" Left="0" Top="0" Opacity="0">
+  <Grid Background="Transparent" IsHitTestVisible="False">
+    <MediaElement x:Name="Player" LoadedBehavior="Manual" UnloadedBehavior="Manual"
+                  Volume="0" IsMuted="True" Stretch="Uniform" ScrubbingEnabled="False" />
+  </Grid>
+</Window>

@@ -1,0 +1,74 @@
+<Window x:Class="DynamicWallpaperStudio.ImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="制作动态壁纸" Width="730" Height="620" WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize" Background="#F6F8FB" FontFamily="Segoe UI, Microsoft YaHei UI">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <StackPanel>
+      <TextBlock Text="制作动态壁纸" FontSize="25" FontWeight="SemiBold" />
+      <TextBlock x:Name="SourceInfo" Foreground="#667085" Margin="0,6,0,18" />
+    </StackPanel>
+    <Border Grid.Row="1" Background="White" CornerRadius="14" BorderBrush="#E4E7EC" BorderThickness="1" Padding="22">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <TextBlock Text="名称" FontWeight="SemiBold" Margin="0,9"/>
+          <TextBox x:Name="NameBox" Grid.Column="1" Margin="0,4,0,10"/>
+
+          <TextBlock Grid.Row="1" Text="应用到" FontWeight="SemiBold" Margin="0,9"/>
+          <ComboBox x:Name="DisplayBox" Grid.Row="1" Grid.Column="1" Margin="0,4,0,10" DisplayMemberPath="Name" SelectedValuePath="Id"/>
+
+          <TextBlock Grid.Row="2" Text="输出分辨率" FontWeight="SemiBold" Margin="0,9"/>
+          <ComboBox x:Name="ResolutionBox" Grid.Row="2" Grid.Column="1" Margin="0,4,0,8" SelectionChanged="ResolutionChanged">
+            <ComboBoxItem Content="保持原始分辨率（不复制，最省空间）" Tag="OriginalReference"/>
+            <ComboBoxItem Content="匹配目标显示器" Tag="MatchDisplay"/>
+            <ComboBoxItem Content="全高清 1080p" Tag="FullHd"/>
+            <ComboBoxItem Content="2K" Tag="TwoK"/>
+            <ComboBoxItem Content="4K" Tag="FourK"/>
+            <ComboBoxItem Content="自定义…" Tag="Custom"/>
+          </ComboBox>
+
+          <TextBlock Grid.Row="3" Text="自定义尺寸" FontWeight="SemiBold" Margin="0,9" x:Name="CustomLabel" Visibility="Collapsed"/>
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,4,0,10" x:Name="CustomPanel" Visibility="Collapsed">
+            <TextBox x:Name="WidthBox" Width="110" Text="1920"/>
+            <TextBlock Text=" × " VerticalAlignment="Center" Margin="8,0"/>
+            <TextBox x:Name="HeightBox" Width="110" Text="1080"/>
+            <TextBlock Text="像素（偶数）" Foreground="#667085" VerticalAlignment="Center" Margin="10,0"/>
+          </StackPanel>
+
+          <TextBlock Grid.Row="4" Text="画面适配" FontWeight="SemiBold" Margin="0,9"/>
+          <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,4,0,10">
+            <RadioButton x:Name="FitRadio" Content="完整显示——保持全部画面，边缘可能留白" IsChecked="True" Margin="0,4"/>
+            <RadioButton x:Name="FillRadio" Content="填满屏幕——保持比例，可能裁掉少量边缘" Margin="0,7,0,4"/>
+          </StackPanel>
+
+          <TextBlock Grid.Row="5" Text="选项" FontWeight="SemiBold" Margin="0,9"/>
+          <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,4,0,10">
+            <CheckBox x:Name="FavoriteBox" Content="加入收藏" Margin="0,4"/>
+            <CheckBox x:Name="ApplyBox" Content="制作后立即设为动态壁纸" IsChecked="True" Margin="0,7,0,4"/>
+          </StackPanel>
+
+          <Border Grid.Row="6" Grid.ColumnSpan="2" Background="#EEF6FF" CornerRadius="9" Padding="12" Margin="0,14,0,0">
+            <TextBlock x:Name="StorageHint" TextWrapping="Wrap" Foreground="#175CD3"/>
+          </Border>
+          <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="动态壁纸会静音循环播放；原视频不会被修改。转换任务采用低优先级，长视频不会整段载入内存。"
+                     TextWrapping="Wrap" Foreground="#667085" Margin="0,14,0,0"/>
+        </Grid>
+      </ScrollViewer>
+    </Border>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+      <Button Content="取消" Width="92" Margin="0,0,10,0" IsCancel="True"/>
+      <Button Content="开始制作" Width="110" Background="#0878F9" Foreground="White" FontWeight="SemiBold" Click="ConfirmClicked"/>
+    </StackPanel>
+  </Grid>
+</Window>

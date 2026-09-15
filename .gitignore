@@ -1,0 +1,55 @@
+# macOS / editors
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Local configuration and secrets
+.env
+.env.*
+*.p12
+*.pfx
+*.p8
+*.cer
+*.mobileprovision
+
+# Build output
+artifacts/
+dist/
+build/
+**/build/
+**/.build/
+**/bin/
+**/obj/
+**/publish/
+*.app/
+*.dmg
+*.msix
+*.msi
+*.exe
+*.dll
+*.pdb
+
+# Downloaded third-party tools
+windows/tools/*
+!windows/tools/README.md
+
+# Runtime data and diagnostics
+Data/
+**/Data/
+Library.json
+*.log
+crash-*.txt
+
+# User media and generated packages
+*.mp4
+*.mov
+*.m4v
+*.avi
+*.dwallpaper
+*.dwallpaper.zip
+*.zip
+windows/Samples/*
+!windows/Samples/README.md
+macos/Resources/StarterWallpaper.*

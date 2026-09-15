@@ -1,0 +1,123 @@
+<p align="center">
+  <img src="macos/Resources/AppIcon-1024.png" width="112" alt="动态壁纸工作室图标">
+</p>
+
+<h1 align="center">动态壁纸工作室</h1>
+
+<p align="center">
+  本地优先的 macOS 与 Windows 视频动态壁纸管理器。
+</p>
+
+<p align="center">
+  <a href="README.en.md">English</a> ·
+  <a href="https://github.com/Maize9623/dynamic-wallpaper-studio/issues">问题反馈</a> ·
+  <a href="https://github.com/Maize9623/dynamic-wallpaper-studio/security/policy">安全策略</a>
+</p>
+
+![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
+![macOS](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
+![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows)
+[![CI](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml)
+
+动态壁纸工作室可以把本地视频变成桌面背景，并集中完成导入、转换、收藏、多显示器分配和画面适配。视频处理与资料库都留在本机，不需要账号，也不会上传媒体文件。
+
+## 功能
+
+- 拖拽或批量导入 MP4、MOV、M4V 视频
+- 原始尺寸、显示器尺寸、1080p、2K、4K与自定义分辨率
+- “完整显示”和“填满屏幕”两种模式，始终保持原始宽高比
+- 为不同显示器分别选择壁纸
+- 收藏、搜索、切换与删除壁纸
+- 静音、无缝循环播放
+- 导入和导出可分享的动态壁纸包
+- macOS 菜单栏控制；Windows 通知区域控制与安全模式
+
+## 平台状态
+
+| 平台 | 当前源码版本 | 技术栈 | 状态 |
+|---|---:|---|---|
+| macOS | 2.0.0 | SwiftUI、AppKit、AVFoundation | macOS 15+；Apple Silicon 与 Intel |
+| Windows | 1.0.4 | .NET 10 WPF、mpv、FFmpeg | Windows 10/11 x64；Preview |
+
+两个版本共享产品目标，但不是同一套 UI 代码。Windows 版仍标记为 Preview：Explorer 更新、Raised Desktop、混合 DPI 或特殊多屏排列可能影响桌面嵌入。
+
+## 下载说明
+
+首个公开版本先提供经过清理和构建验证的最新源码。暂不上传现有的预编译安装包：macOS 包尚未完成 Developer ID 签名与公证，Windows 包还需要为静态 FFmpeg/mpv 构建准备完整的对应源码归档。GitHub 的源码快照和下方构建脚本不受影响。
+
+## 从源码开始
+
+### macOS
+
+需要 macOS 15+、Xcode 16+ 与 Command Line Tools。
+
+```bash
+git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
+cd dynamic-wallpaper-studio
+./macos/scripts/build.sh
+```
+
+脚本会分别编译 Apple Silicon 与 Intel 程序，合并为 Universal 应用并进行本地 ad-hoc 签名。详细说明见 [macOS 构建文档](macos/README.md)。
+
+### Windows
+
+需要 Windows 10/11 x64、PowerShell 7 与 .NET 10 SDK。
+
+```powershell
+git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
+Set-Location dynamic-wallpaper-studio
+./windows/scripts/fetch-dependencies.ps1
+./windows/scripts/build.ps1
+```
+
+依赖脚本会直接从上游下载固定版本的 FFmpeg 与 mpv，并在解压前校验 SHA-256；这些第三方二进制不会进入 Git 历史。详细说明见 [Windows 构建文档](windows/README.md)。
+
+## 壁纸包
+
+- macOS 使用 `.dwallpaper` 目录包。
+- Windows 使用 `.dwallpaper.zip` 压缩包。
+- 当前跨平台传递不是完全一键式：Windows 导出的压缩包在 macOS 使用前需先解压为 `.dwallpaper` 目录。
+- 仓库不包含示例视频或人物素材；请只分享你拥有再分发权的媒体。
+
+## 性能与存储
+
+长视频不会一次性全部载入内存，而是按需解码；时长主要影响磁盘空间。4K、高帧率、多屏同时播放，或编码格式不利于硬件解码时，仍会增加 CPU、GPU 与内存占用。
+
+- macOS 会把导入的原视频复制到应用资料库；选择转换分辨率时，还会保存转换后的版本。
+- Windows 对兼容的 H.264 MP4 可以只保存原文件引用；需要转换时，资料库会保存一份 H.264/YUV420P、最高 30 fps 的成品。
+- 主动导出的壁纸包是额外副本。
+
+删除或移动 Windows 引用模式下的原视频会使该壁纸失效。删除 macOS 资料库项目会删除应用管理的本地副本。
+
+## 隐私
+
+应用没有账号、云同步、遥测或媒体上传功能。资料库索引、缩略图与诊断日志均保存在本机。Windows 日志可能包含原视频的完整路径；公开提交日志前请先检查并脱敏。更多信息见 [隐私说明](PRIVACY.md)。
+
+## 已知限制
+
+- 应用必须在后台运行；它不会替换登录界面或锁屏壁纸。
+- 当前 macOS 构建未使用 Developer ID 签名，也未经过 Apple 公证，手动构建或非官方包可能触发 Gatekeeper。
+- 当前 Windows 构建没有 Authenticode 签名，可能触发 SmartScreen。
+- Windows 开机启动只启动管理程序，目前不承诺自动恢复上一次播放。
+- 桌面嵌入依赖系统内部窗口层级，系统更新后可能需要兼容性修复。
+
+## 项目结构
+
+```text
+.
+├── macos/                  # SwiftUI/AppKit 应用与 Universal 构建脚本
+├── windows/                # .NET WPF 应用、依赖与发布脚本
+├── .github/workflows/      # 源码构建检查
+├── CONTRIBUTING.md
+├── PRIVACY.md
+├── SECURITY.md
+└── THIRD_PARTY_NOTICES.md
+```
+
+## 参与贡献
+
+欢迎提交问题、复现日志和 Pull Request。请先阅读 [贡献指南](CONTRIBUTING.md)；报告安全问题请遵循 [安全策略](SECURITY.md)。
+
+## 许可与致谢
+
+项目代码以 [GNU GPL 3.0 或更高版本](LICENSE)发布。Windows 桌面嵌入实现参考并改编自 GPL-3.0 的 [Lively Wallpaper](https://github.com/rocksdanister/lively)。FFmpeg、mpv、Vulkan Loader 与 .NET 仍分别适用各自许可证；版本、来源与分发说明见 [第三方声明](THIRD_PARTY_NOTICES.md) 和 `windows/LICENSES/`。
