@@ -15,8 +15,9 @@ Distributor build information: https://www.gyan.dev/ffmpeg/builds/
 
 The pinned Essentials archive is distributed under GPL version 3 and contains
 its exact build configuration and notices. Dynamic Wallpaper Studio's public
-source repository does not include ffmpeg.exe or ffprobe.exe. The verified
-download script retrieves them directly from the distributor when requested.
+source repository and public portable archive do not include ffmpeg.exe or
+ffprobe.exe. The verified first-run installer and developer dependency script
+retrieve them directly from the distributor after confirmation.
 
 Anyone who redistributes those executables must also satisfy the license and
 complete corresponding-source obligations for that exact build and its enabled

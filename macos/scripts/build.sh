@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MACOS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$MACOS_DIR/.." && pwd)"
 SOURCES_DIR="$MACOS_DIR/Sources"
 RESOURCES_DIR="$MACOS_DIR/Resources"
 INFO_PLIST="$MACOS_DIR/Info.plist"
@@ -68,6 +69,9 @@ chmod 0755 "$STAGED_APP/Contents/MacOS/$EXECUTABLE_NAME"
 
 install -m 0644 "$INFO_PLIST" "$STAGED_APP/Contents/Info.plist"
 install -m 0644 "$RESOURCES_DIR/AppIcon.icns" "$STAGED_APP/Contents/Resources/AppIcon.icns"
+install -m 0644 "$PROJECT_DIR/LICENSE" "$STAGED_APP/Contents/Resources/LICENSE.txt"
+install -m 0644 "$PROJECT_DIR/NOTICE" "$STAGED_APP/Contents/Resources/NOTICE.txt"
+install -m 0644 "$PROJECT_DIR/THIRD_PARTY_NOTICES.md" "$STAGED_APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 starter_wallpaper="${STARTER_WALLPAPER:-}"
 if [[ -z "$starter_wallpaper" && -f "$RESOURCES_DIR/StarterWallpaper.mp4" ]]; then

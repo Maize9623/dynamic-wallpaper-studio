@@ -5,11 +5,12 @@ Download page: https://www.gyan.dev/ffmpeg/builds/
 Upstream project: https://ffmpeg.org/
 Upstream source: https://ffmpeg.org/download.html#get-sources
 
-The optionally downloaded ffmpeg.exe and ffprobe.exe are separate command-line programs used by
-Dynamic Wallpaper Studio for metadata inspection, poster extraction and optional
-video transcoding. Their license is included beside this notice. They are not
-committed to this source repository. Video playback is provided by the separately
-downloaded mpv executable described in mpv-Source.txt.
+The first-run installer or optional developer script downloads ffmpeg.exe and
+ffprobe.exe as separate command-line programs used by Dynamic Wallpaper Studio
+for metadata inspection, poster extraction and optional video transcoding. Their
+license is included beside this notice. They are not committed to this source
+repository or its public portable archive. Video playback is provided by the
+separately downloaded mpv executable described in mpv-Source.txt.
 
 Pinned archive:
 https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip

@@ -87,7 +87,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
         if (!File.Exists(_mediaPath)) throw new FileNotFoundException("视频文件不存在。", _mediaPath);
 
         var mpv = Path.Combine(AppContext.BaseDirectory, "tools", "mpv.exe");
-        if (!File.Exists(mpv)) throw new FileNotFoundException("播放器组件 mpv.exe 不存在。", mpv);
+        if (!File.Exists(mpv)) throw new FileNotFoundException("播放器组件 mpv.exe 不存在。请重新启动软件并按提示安装视频组件。", mpv);
 
         var start = new ProcessStartInfo
         {

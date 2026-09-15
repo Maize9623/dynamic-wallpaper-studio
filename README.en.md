@@ -16,7 +16,7 @@
 
 ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
 ![macOS](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows)
+![Windows](https://img.shields.io/badge/Windows-11-0078D4?logo=windows)
 [![CI](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml)
 
 Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provides one place to import, convert, favorite, assign and scale them. Media processing and the wallpaper library stay on your computer. No account or upload is required.
@@ -37,13 +37,24 @@ Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provide
 | Platform | Source version | Stack | Status |
 |---|---:|---|---|
 | macOS | 2.0.0 | SwiftUI, AppKit, AVFoundation | macOS 15+; Apple Silicon and Intel |
-| Windows | 1.0.4 | .NET 10 WPF, mpv, FFmpeg | Windows 10/11 x64; Preview |
+| Windows | 1.0.5 | .NET 10 WPF, mpv, FFmpeg | Windows 11 x64 recommended; Preview |
 
-The two applications share a product goal, not a UI codebase. The Windows build remains a preview because Explorer updates, Raised Desktop, mixed DPI and unusual multi-monitor layouts can affect desktop embedding.
+The two applications share a product goal, not a UI codebase. The Windows build remains a preview because Explorer updates, Raised Desktop, mixed DPI and unusual multi-monitor layouts can affect desktop embedding. Windows 10 is best-effort compatibility rather than a formally supported target.
 
-## Downloads
+## Download an app package
 
-The initial public release provides the latest cleaned and build-verified source. Existing prebuilt packages are intentionally not uploaded yet: the macOS bundle still needs Developer ID signing and notarization, while a redistributable Windows bundle needs a complete corresponding-source archive for its static FFmpeg/mpv builds. GitHub source snapshots and the build scripts below are unaffected.
+Open the [latest release](https://github.com/Maize9623/dynamic-wallpaper-studio/releases/latest) and download:
+
+| Platform | File | How to use it |
+|---|---|---|
+| macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | Open the DMG and drag the app to Applications |
+| macOS alternative | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | Extract and drag the app to Applications |
+| Windows | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | Extract everything, then run `DynamicWallpaperStudio.exe` |
+
+The Windows portable package includes the security-patched .NET 10 runtime and needs no administrator access. To avoid directly redistributing static media-tool binaries without complete corresponding-source materials, the app asks for consent on first launch and downloads about 190 MB from fixed, documented distributors: mpv's official GitHub release and the gyan.dev build site listed by FFmpeg. It verifies SHA-256 before continuing. First-time setup needs internet access and 1–2 GB of temporary free space. Safe mode never downloads components.
+
+> [!IMPORTANT]
+> Current packages do not have production code signatures. macOS can block an unnotarized app; after verifying the download, right-click it in Finder and choose Open, or use Open Anyway in System Settings → Privacy & Security—do not disable Gatekeeper globally. Windows can show SmartScreen; compare the file with `SHA256SUMS.txt` before choosing More info → Run anyway. Smart App Control or an organization policy can block it without an override; do not disable system protection, and build the reviewed source instead.
 
 ## Build from source
 
@@ -61,16 +72,15 @@ The script builds Apple Silicon and Intel executables, merges them into a Univer
 
 ### Windows
 
-Requires Windows 10/11 x64, PowerShell 7 and the .NET 10 SDK.
+Windows 11 x64 is recommended. Building requires PowerShell 7 and the exact .NET SDK 10.0.401 pinned by the repository's `global.json`.
 
 ```powershell
 git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
 Set-Location dynamic-wallpaper-studio
-./windows/scripts/fetch-dependencies.ps1
-./windows/scripts/build.ps1
+./windows/scripts/build.ps1 -CreateZip
 ```
 
-The dependency script downloads pinned FFmpeg and mpv builds from their upstream distributors and verifies SHA-256 before extraction. Third-party binaries are deliberately excluded from Git history. See the [Windows build guide](windows/README.md).
+The default public build excludes FFmpeg and mpv; users consent to downloading them on first launch. Use `./windows/scripts/build.ps1 -IncludeThirdPartyTools` only for an internal test package. That mode downloads pinned upstream builds and verifies SHA-256, and it should not be published directly as a public Release. See the [Windows build guide](windows/README.md).
 
 ## Wallpaper packages
 

@@ -1,6 +1,6 @@
 # Third-party notices
 
-This source repository does not commit third-party player, codec or runtime binaries. The Windows dependency script downloads pinned upstream archives and verifies their hashes. If you redistribute a compiled application, you are responsible for preserving notices and satisfying every applicable source-code and license obligation.
+This source repository does not commit third-party player or codec binaries, and the public Windows portable archive does not bundle them. The Windows first-run installer and developer dependency script download pinned upstream archives and verify their hashes. If you redistribute a compiled application or make a separate bundle containing those tools, you are responsible for preserving notices and satisfying every applicable source-code and license obligation.
 
 ## Lively Wallpaper
 
@@ -21,7 +21,7 @@ Windows conversion and media inspection invoke `ffmpeg.exe` and `ffprobe.exe` as
 - License: the pinned build is GPLv3; exact configuration and bundled-library notices are included by its distributor
 - Included here: license and source-location notices only; no executable
 
-The convenience download script is not a substitute for the complete corresponding-source obligations that apply when redistributing FFmpeg binaries. Consult `windows/LICENSES/` and the upstream distributor before publishing a binary bundle.
+The first-run installer and convenience download script are not substitutes for the complete corresponding-source obligations that apply when redistributing FFmpeg binaries. Consult `windows/LICENSES/` and the upstream distributor before publishing a bundle that directly contains those binaries.
 
 ## mpv
 
@@ -44,9 +44,12 @@ The pinned mpv archive includes `vulkan-1.dll` for Vulkan runtime loading.
 
 ## Microsoft .NET
 
-The Windows application targets .NET 10 WPF. A framework-dependent local build uses an installed .NET runtime; a self-contained publish includes Microsoft runtime files.
+The Windows application targets .NET 10 WPF. The public Windows portable release is a self-contained publish built with .NET SDK 10.0.401 and includes the .NET 10.0.12 Runtime and Windows Desktop (WPF) Runtime files.
 
-- Upstream: [.NET](https://github.com/dotnet/runtime)
-- Licenses and notices: distributed with the .NET SDK/runtime
+- Runtime upstream: [dotnet/runtime v10.0.12](https://github.com/dotnet/runtime/tree/v10.0.12)
+- WPF upstream: [dotnet/wpf v10.0.12](https://github.com/dotnet/wpf/tree/v10.0.12)
+- Most runtime and WPF files: MIT License
+- `coreclr.dll`, `Microsoft.DiaSymReader.Native.*.dll`, `PresentationNative_cor3.dll`, `vcruntime140_cor3.dll` and `wpfgfx_cor3.dll`: Microsoft .NET Library License, as identified by Microsoft's version-pinned Windows mapping
+- `D3DCompiler_47_cor3.dll`: Microsoft Windows SDK License, as identified by the same mapping
 
-If you redistribute a self-contained build, include the matching Microsoft `LICENSE.txt` and `ThirdPartyNotices.txt` from that distribution.
+The release build copies the matching SDK-root `LICENSE.txt` and `ThirdPartyNotices.txt`, and also includes the version-pinned WPF license/notices plus Microsoft's general and Windows-specific license mappings. See `windows/LICENSES/dotnet-10.0.12-SOURCES.md` for the exact upstream locations and applicable Microsoft license links.

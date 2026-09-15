@@ -16,7 +16,7 @@
 
 ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
 ![macOS](https://img.shields.io/badge/macOS-15%2B-black?logo=apple)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows)
+![Windows](https://img.shields.io/badge/Windows-11-0078D4?logo=windows)
 [![CI](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Maize9623/dynamic-wallpaper-studio/actions/workflows/ci.yml)
 
 动态壁纸工作室可以把本地视频变成桌面背景，并集中完成导入、转换、收藏、多显示器分配和画面适配。视频处理与资料库都留在本机，不需要账号，也不会上传媒体文件。
@@ -37,13 +37,24 @@
 | 平台 | 当前源码版本 | 技术栈 | 状态 |
 |---|---:|---|---|
 | macOS | 2.0.0 | SwiftUI、AppKit、AVFoundation | macOS 15+；Apple Silicon 与 Intel |
-| Windows | 1.0.4 | .NET 10 WPF、mpv、FFmpeg | Windows 10/11 x64；Preview |
+| Windows | 1.0.5 | .NET 10 WPF、mpv、FFmpeg | Windows 11 x64 推荐；Preview |
 
-两个版本共享产品目标，但不是同一套 UI 代码。Windows 版仍标记为 Preview：Explorer 更新、Raised Desktop、混合 DPI 或特殊多屏排列可能影响桌面嵌入。
+两个版本共享产品目标，但不是同一套 UI 代码。Windows 版仍标记为 Preview：Explorer 更新、Raised Desktop、混合 DPI 或特殊多屏排列可能影响桌面嵌入。Windows 10 仅尽力兼容，不再作为正式支持目标。
 
-## 下载说明
+## 下载安装包
 
-首个公开版本先提供经过清理和构建验证的最新源码。暂不上传现有的预编译安装包：macOS 包尚未完成 Developer ID 签名与公证，Windows 包还需要为静态 FFmpeg/mpv 构建准备完整的对应源码归档。GitHub 的源码快照和下方构建脚本不受影响。
+前往 [最新 Release](https://github.com/Maize9623/dynamic-wallpaper-studio/releases/latest) 下载：
+
+| 平台 | 下载文件 | 使用方式 |
+|---|---|---|
+| macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序” |
+| macOS 备用 | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | 解压后把应用拖入“应用程序” |
+| Windows | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | 完整解压，运行 `DynamicWallpaperStudio.exe` |
+
+Windows 便携包已自带带安全更新的 .NET 10 运行环境，不需要管理员权限。为避免直接再分发许可材料不完整的静态媒体工具，应用首次启动时会征求同意，再从固定且公开记录的分发来源下载约 190 MB 运行组件：mpv 官方 GitHub Release，以及 FFmpeg 官网列出的 gyan.dev 构建站。应用会先校验 SHA-256，随后继续打开；首次准备需要联网并建议预留 1–2 GB 临时空间。安全模式不会联网。
+
+> [!IMPORTANT]
+> 当前安装包没有正式代码签名。macOS 可能拦截未公证应用，请确认下载来源后在 Finder 中右键应用并选择“打开”，或前往“系统设置 → 隐私与安全性”选择“仍要打开”；不要全局关闭 Gatekeeper。Windows 可能显示 SmartScreen，请先核对 Release 页面中的 `SHA256SUMS.txt`，确认来源后再选择“更多信息”→“仍要运行”。Smart App Control 或企业策略可能不允许放行，请不要关闭系统防护，可改为自行审阅并构建源码。
 
 ## 从源码开始
 
@@ -61,16 +72,15 @@ cd dynamic-wallpaper-studio
 
 ### Windows
 
-需要 Windows 10/11 x64、PowerShell 7 与 .NET 10 SDK。
+建议使用 Windows 11 x64，需要 PowerShell 7 与仓库 `global.json` 固定的 .NET SDK 10.0.401。
 
 ```powershell
 git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
 Set-Location dynamic-wallpaper-studio
-./windows/scripts/fetch-dependencies.ps1
-./windows/scripts/build.ps1
+./windows/scripts/build.ps1 -CreateZip
 ```
 
-依赖脚本会直接从上游下载固定版本的 FFmpeg 与 mpv，并在解压前校验 SHA-256；这些第三方二进制不会进入 Git 历史。详细说明见 [Windows 构建文档](windows/README.md)。
+默认公开构建不内置 FFmpeg 或 mpv，用户首次运行时再确认下载。仅制作内部测试包时可显式使用 `./windows/scripts/build.ps1 -IncludeThirdPartyTools`；该模式会从记录的上游地址下载固定版本并校验 SHA-256，不应直接用于公开 Release。详细说明见 [Windows 构建文档](windows/README.md)。
 
 ## 壁纸包
 

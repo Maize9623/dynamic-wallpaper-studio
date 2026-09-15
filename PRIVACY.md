@@ -9,7 +9,7 @@ Dynamic Wallpaper Studio is designed to work locally.
 - It does not include telemetry, analytics or advertising SDKs.
 - It does not sell or share user data.
 
-The Windows dependency download script accesses the documented upstream FFmpeg and mpv download URLs only when you run it. The running wallpaper application itself does not require those downloads after setup.
+The public Windows portable build does not bundle FFmpeg or mpv. On the first normal launch—or later if those components are missing or their installed bundle version no longer matches—after asking for confirmation, it downloads pinned archives from the documented upstream mpv and FFmpeg distributors and verifies their SHA-256 hashes before extraction. The developer dependency script performs the same downloads when explicitly run. While the required components remain complete and current, normal wallpaper playback and conversion do not require further network access.
 
 ## Local data
 

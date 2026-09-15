@@ -134,7 +134,7 @@ public sealed class FfmpegService
 
     private void EnsureAvailable()
     {
-        if (!IsAvailable) throw new FileNotFoundException("视频工具不完整。请重新解压完整的 Windows 便携版。", FfmpegPath);
+        if (!IsAvailable) throw new FileNotFoundException("视频组件尚未安装或文件不完整。请退出安全模式后正常启动软件，按提示重新下载。", FfmpegPath);
     }
 
     private static double ParseFraction(string? value)

@@ -14,6 +14,7 @@ $MpvSha256 = "4e197f729f5071c6772f35fffd96e0f36e3e8a044bd9479b136bb09b7c6a80ff"
 $FfmpegVersion = "9.0.1"
 $FfmpegUri = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.1-essentials_build.zip"
 $FfmpegSha256 = "fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9"
+$BundleId = "mpv-0.41.0+ffmpeg-9.0.1"
 
 function Get-FullPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -154,6 +155,17 @@ try {
         }
         Write-Host "Installed $destinationPath"
     }
+
+    $stampPath = Join-Path $toolsRoot ".runtime-dependencies.json"
+    $stamp = [ordered]@{
+        bundleId = $BundleId
+        installedAtUtc = [DateTimeOffset]::UtcNow
+        archives = [ordered]@{
+            "mpv $MpvVersion" = $MpvSha256
+            "FFmpeg $FfmpegVersion Essentials" = $FfmpegSha256
+        }
+    } | ConvertTo-Json -Depth 4
+    [System.IO.File]::WriteAllText($stampPath, $stamp, [System.Text.UTF8Encoding]::new($false))
 
     Write-Host "Dependency installation complete."
 }

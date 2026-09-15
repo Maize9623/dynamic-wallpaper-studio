@@ -34,6 +34,14 @@ macos/dist/动态壁纸工作室.app
 file "macos/dist/动态壁纸工作室.app/Contents/MacOS/DynamicWallpaperStudio"
 ```
 
+如需生成与 Release 同名的 Universal ZIP、DMG 和 SHA-256 文件，请确保 `macos/artifacts/` 中没有同名旧产物，然后执行：
+
+```bash
+./macos/scripts/package.sh
+```
+
+打包脚本会重新构建应用，检查 `arm64`/`x86_64` 架构与签名，解压或挂载成品复验，并默认排除本地示例视频。它会拒绝覆盖已有产物。
+
 ## 可选的内置示例壁纸
 
 公开源码不附带示例视频。若希望首次启动时自动导入一段视频，可在构建时指定 MP4：

@@ -18,7 +18,9 @@
     <RootNamespace>DynamicWallpaperStudio</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/AppIcon.ico</ApplicationIcon>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
+    <FileVersion>1.0.5.0</FileVersion>
     <Authors>Maize9623 and contributors</Authors>
     <Company>Maize9623</Company>
     <Product>动态壁纸工作室</Product>
@@ -36,14 +38,19 @@
     <Content Include="Assets/AppIcon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Samples\StarterWallpaper.mp4" Condition="Exists('Samples\StarterWallpaper.mp4')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Samples\StarterPoster.jpg" Condition="Exists('Samples\StarterPoster.jpg')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <!-- Third-party executables are intentionally not committed. A source checkout
-         can still compile without them; scripts/fetch-dependencies.ps1 installs the
-         pinned, checksum-verified files required for a runnable publish. -->
-    <Content Include="tools\ffmpeg.exe" Condition="Exists('tools\ffmpeg.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="tools\mpv.exe" Condition="Exists('tools\mpv.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="tools\vulkan-1.dll" Condition="Exists('tools\vulkan-1.dll')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="tools\ffprobe.exe" Condition="Exists('tools\ffprobe.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Third-party executables are intentionally not committed or included in a
+         public portable publish. The app installs pinned, checksum-verified tools
+         on first run; developers can opt into bundling local test tools explicitly. -->
+    <Content Include="tools\ffmpeg.exe" Condition="'$(IncludeThirdPartyTools)' == 'true' And Exists('tools\ffmpeg.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\mpv.exe" Condition="'$(IncludeThirdPartyTools)' == 'true' And Exists('tools\mpv.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\vulkan-1.dll" Condition="'$(IncludeThirdPartyTools)' == 'true' And Exists('tools\vulkan-1.dll')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\ffprobe.exe" Condition="'$(IncludeThirdPartyTools)' == 'true' And Exists('tools\ffprobe.exe')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools\.runtime-dependencies.json" Condition="'$(IncludeThirdPartyTools)' == 'true' And Exists('tools\.runtime-dependencies.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="LICENSES\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\NOTICE" Link="NOTICE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\PRIVACY.md" Link="PRIVACY.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\THIRD_PARTY_NOTICES.md" Link="THIRD_PARTY_NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="portable.flag" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="使用说明.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="安全模式启动.cmd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

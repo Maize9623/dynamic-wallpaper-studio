@@ -23,9 +23,10 @@ mpv.exe SHA-256:
 vulkan-1.dll SHA-256:
 2baae0a109cb5962437b00a182750308ce9f69f59381df62939c00c21150ee6b
 
-The dependency script downloads the player and vulkan-1.dll as unmodified files
-from the official mpv release archive after verifying the archive SHA-256. These
-files are not committed to the public source repository. Dynamic Wallpaper Studio communicates with mpv through its
+The app's first-run installer and developer dependency script download the player
+and vulkan-1.dll as unmodified files from the official mpv release archive after
+verifying the archive SHA-256. These files are not committed to the public source
+repository or included in its public portable archive. Dynamic Wallpaper Studio communicates with mpv through its
 documented JSON IPC interface and does not link mpv into the application. See
 mpv-LICENSE.GPL.txt, mpv-LICENSE.LGPL.txt and mpv-Copyright.txt beside this
 notice. The mpv source tag, source archive, official Windows build script and

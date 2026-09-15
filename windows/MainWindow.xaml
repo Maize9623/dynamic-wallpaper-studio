@@ -84,8 +84,8 @@
                        Foreground="#067647" TextWrapping="Wrap"/>
           </Border>
           <TextBlock Text="隐私" FontSize="16" FontWeight="SemiBold" Margin="0,25,0,8"/>
-          <TextBlock Text="视频只在本机处理，不上传、不联网分析，也不访问麦克风或摄像头。" Foreground="#667085" TextWrapping="Wrap"/>
-          <TextBlock Text="版本 1.0.4 · Windows 10/11 x64 · Preview" Foreground="#98A2B3" Margin="0,26,0,0"/>
+          <TextBlock Text="视频只在本机处理，不上传，也不访问麦克风或摄像头。公开便携版仅在首次准备时，经你确认后联网下载并校验固定的 mpv/FFmpeg 组件；完成后播放和转换无需联网。" Foreground="#667085" TextWrapping="Wrap"/>
+          <TextBlock Text="版本 1.0.5 · Windows 11 x64 · Preview" Foreground="#98A2B3" Margin="0,26,0,0"/>
         </StackPanel>
       </Border>
     </Grid>

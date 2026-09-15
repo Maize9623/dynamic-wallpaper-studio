@@ -36,10 +36,53 @@ public partial class App : System.Windows.Application
 
         try
         {
-            _startupGuard.UpdatePhase("initializing-controller");
-            _controller = new AppController();
             var requestedSafeMode = e.Args.Any(x => string.Equals(x, "--safe-mode", StringComparison.OrdinalIgnoreCase));
             var safeMode = requestedSafeMode || _startupGuard.PreviousStartFailed;
+            if (!safeMode && !RuntimeDependencyInstaller.IsInstalled)
+            {
+                var accepted = System.Windows.MessageBox.Show(RuntimeDependencyInstaller.ConsentMessage,
+                    "动态壁纸工作室 · 首次准备", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (accepted != MessageBoxResult.Yes)
+                {
+                    DiagnosticsLog.Write("用户取消首次运行视频组件下载");
+                    System.Windows.MessageBox.Show("尚未安装视频组件，软件将退出。下次正常启动时可以重新下载；安全模式不要求联网。",
+                        "动态壁纸工作室", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Shutdown();
+                    return;
+                }
+
+                while (!RuntimeDependencyInstaller.IsInstalled)
+                {
+                    var setupWindow = new DependencySetupWindow();
+                    setupWindow.Show();
+                    try
+                    {
+                        await RuntimeDependencyInstaller.InstallAsync(setupWindow.Progress, setupWindow.CancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        DiagnosticsLog.Write("首次运行视频组件下载已取消");
+                        setupWindow.FinishAndClose();
+                        Shutdown();
+                        return;
+                    }
+                    catch (Exception error)
+                    {
+                        DiagnosticsLog.Write("首次运行视频组件安装失败", error);
+                        setupWindow.FinishAndClose();
+                        var retry = System.Windows.MessageBox.Show(
+                            $"视频组件安装失败：\n\n{error.Message}\n\n请检查网络和磁盘空间。是否重试？",
+                            "动态壁纸工作室", MessageBoxButton.YesNo, MessageBoxImage.Error);
+                        if (retry == MessageBoxResult.Yes) continue;
+                        Shutdown();
+                        return;
+                    }
+                    setupWindow.FinishAndClose();
+                }
+            }
+
+            _startupGuard.UpdatePhase("initializing-controller");
+            _controller = new AppController();
             await _controller.InitializeAsync(safeMode);
             _controller.EnsureLaunchPathCurrent();
             _startupGuard.UpdatePhase("creating-main-window");
