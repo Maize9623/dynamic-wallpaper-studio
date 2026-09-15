@@ -2,6 +2,11 @@ name: Package Windows portable app
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional existing release tag to receive the verified package
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -129,3 +134,32 @@ jobs:
             release/${{ env.PACKAGE_NAME }}.zip.sha256
           if-no-files-found: error
           compression-level: 0
+
+  publish:
+    name: Attach package to existing release
+    if: ${{ inputs.release_tag != '' }}
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PACKAGE_NAME: DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Download verified package
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: release
+
+      - name: Upload package to release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          gh release upload "$RELEASE_TAG" \
+            "release/${PACKAGE_NAME}.zip" \
+            "release/${PACKAGE_NAME}.zip.sha256" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
