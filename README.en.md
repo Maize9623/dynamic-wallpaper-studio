@@ -21,7 +21,7 @@
 
 Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provides one place to import, convert, favorite, assign and scale them. Media processing and the wallpaper library stay on your computer. No account or upload is required.
 
-The `feature/windows-1.1-moyushenqi` branch upgrades the Windows source to **1.1.0 “摸鱼神器” Preview**: a transport HUD, optional library path, TXT/PDF reader, isolated live/web sync, and a living-room TV camouflage. `main` is unchanged.
+The `feature/windows-1.1-moyushenqi` branch upgrades the Windows source to **1.1.0 “摸鱼神器” Preview**: a transport HUD, optional library path, TXT/PDF reader, isolated live/web sync, and a living-room TV camouflage. `main` is unchanged. macOS is not ported yet; implement it on a Mac from [macos/MACOS_1.1_HANDOFF.md](macos/MACOS_1.1_HANDOFF.md) on a new `feature/macos-1.1-moyushenqi` branch.
 
 ## Features
 

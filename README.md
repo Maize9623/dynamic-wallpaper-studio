@@ -21,7 +21,7 @@
 
 动态壁纸工作室可以把本地视频变成桌面背景，并集中完成导入、转换、收藏、多显示器分配和画面适配。视频处理与资料库都留在本机，不需要账号，也不会上传媒体文件。
 
-`feature/windows-1.1-moyushenqi` 分支上的 Windows 源码升级为 **1.1.0「摸鱼神器」Preview**：在原有动态壁纸之上增加连续播放条、可选资料库路径、TXT/PDF 阅读、独立网页直播同步，以及客厅电视伪装。`main` 分支保持原状，不受此分支影响。
+`feature/windows-1.1-moyushenqi` 分支上的 Windows 源码升级为 **1.1.0「摸鱼神器」Preview**：在原有动态壁纸之上增加连续播放条、可选资料库路径、TXT/PDF 阅读、独立网页直播同步，以及客厅电视伪装。`main` 分支保持原状，不受此分支影响。macOS 尚未做同等升级；明天在 Mac 上按 [macos/MACOS_1.1_HANDOFF.md](macos/MACOS_1.1_HANDOFF.md) 另开 `feature/macos-1.1-moyushenqi`。
 
 ## 功能
 

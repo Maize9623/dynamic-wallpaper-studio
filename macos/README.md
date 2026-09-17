@@ -2,6 +2,8 @@
 
 macOS 版使用 Swift、SwiftUI、AppKit 与 AVFoundation 编写，不依赖第三方包。它可以导入常见视频，按显示器尺寸转换，在多显示器之间分配壁纸，并在菜单栏中暂停或切换收藏。
 
+1.1「摸鱼神器」尚未移植到 macOS。请在 MacBook 上按 [MACOS_1.1_HANDOFF.md](MACOS_1.1_HANDOFF.md) 从本分支另开 `feature/macos-1.1-moyushenqi`，不要改 `main`。
+
 ## 系统要求
 
 - macOS 15.0 或更高版本
