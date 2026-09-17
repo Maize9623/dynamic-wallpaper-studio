@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
@@ -18,6 +19,7 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
@@ -126,7 +128,7 @@ public partial class App : System.Windows.Application
             var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
             _tray = new NotifyIcon
             {
-                Text = "动态壁纸工作室",
+                Text = "摸鱼神器",
                 Visible = true,
                 Icon = File.Exists(iconPath) ? new System.Drawing.Icon(iconPath) : System.Drawing.SystemIcons.Application
             };
@@ -150,6 +152,9 @@ public partial class App : System.Windows.Application
         menu.Items.Add(new ToolStripMenuItem(current == null ? "没有正在播放的壁纸" : current.Name) { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_controller.IsPaused ? "继续播放" : "暂停动态壁纸", null, (_, _) => _controller.TogglePause());
+        menu.Items.Add(_controller.State.Settings.AudioMuted ? "开声" : "静音", null, (_, _) => _controller.SetMuted(!_controller.State.Settings.AudioMuted));
+        menu.Items.Add(_controller.State.Settings.TelevisionOff ? "开电视" : "关电视", null, (_, _) => _controller.SetTelevisionOff(!_controller.State.Settings.TelevisionOff));
+        menu.Items.Add(_controller.State.Settings.BossHidden ? "恢复桌面内容" : "老板键隐藏", null, (_, _) => _controller.ToggleBossKey());
         menu.Items.Add("上一张收藏", null, (_, _) => _controller.SwitchFavorite(-1));
         menu.Items.Add("下一张收藏", null, (_, _) => _controller.SwitchFavorite(1));
         menu.Items.Add(new ToolStripSeparator());

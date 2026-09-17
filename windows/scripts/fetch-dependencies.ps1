@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ToolsDirectory = (Join-Path $PSScriptRoot "..\tools")
+    [string]$ToolsDirectory = ""
 )
 
 Set-StrictMode -Version Latest
@@ -109,6 +109,13 @@ function Find-SingleFile {
 
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+
+if ([string]::IsNullOrWhiteSpace($ToolsDirectory)) {
+    if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        throw "Unable to resolve the tools directory. Pass -ToolsDirectory explicitly."
+    }
+    $ToolsDirectory = Join-Path $PSScriptRoot "..\tools"
 }
 
 $toolsRoot = Get-FullPath -Path $ToolsDirectory

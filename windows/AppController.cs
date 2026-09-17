@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using Forms = System.Windows.Forms;
 
 namespace DynamicWallpaperStudio;
@@ -10,6 +11,8 @@ public sealed class AppController : IDisposable
     private readonly FfmpegService _ffmpeg = new();
     private readonly PortablePackageService _packages = new();
     private WallpaperEngine? _engine;
+    private WebSession _web = new();
+    private WebLoginWindow? _studio;
     private bool _safeMode;
     private CancellationTokenSource? _importCancellation;
     private readonly Queue<(string Path, Window? Owner)> _importQueue = new();
@@ -19,7 +22,10 @@ public sealed class AppController : IDisposable
     public IReadOnlyList<DisplayInfo> Displays => WallpaperEngine.EnumerateDisplays();
     public string LibraryPath => _store.RootPath;
     public long LibrarySize => _store.LibrarySize();
-    public bool IsPaused => _engine?.IsPaused == true;
+    public bool IsPaused => State.Settings.ContentMode == ContentMode.Web
+        ? _web.LastSnapshot.Paused
+        : _engine?.IsPaused == true;
+    public WebSession Web => _web;
     public bool IsWallpaperEnabled => !_safeMode && State.Settings.WallpaperEnabled && _engine != null;
     public bool IsSafeMode => _safeMode;
     public string DiagnosticsPath => DiagnosticsLog.LatestLogPath;
@@ -38,6 +44,8 @@ public sealed class AppController : IDisposable
     public async Task InitializeAsync(bool safeMode = false)
     {
         _safeMode = safeMode;
+        DiagnosticsLog.Configure(_store.LogsPath);
+        State.Settings.LibraryRoot = _store.RootPath;
         try
         {
             var launchCommand = LaunchAtLogin.CurrentCommand;
@@ -73,7 +81,7 @@ public sealed class AppController : IDisposable
             IsManagedVideo = false, SourceWidth = metadata.Width, SourceHeight = metadata.Height,
             OutputWidth = metadata.Width, OutputHeight = metadata.Height, Duration = metadata.Duration, Fps = metadata.Fps,
             Codec = metadata.Codec, FileSize = metadata.FileSize, SourceFingerprint = "starter:" + metadata.Fingerprint,
-            AspectMode = AspectMode.Fit
+            AspectMode = AspectMode.Fit, HasAudio = metadata.HasAudio
         };
         State.Wallpapers.Add(item);
         State.DefaultWallpaperId = item.Id;
@@ -113,6 +121,21 @@ public sealed class AppController : IDisposable
                 return;
             }
             if (!File.Exists(path)) return;
+            var extension = Path.GetExtension(path);
+            if (extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                var copy = State.Settings.ImportMode == ImportStorageMode.CopyToLibrary;
+                if (owner != null)
+                {
+                    var answer = System.Windows.MessageBox.Show(owner,
+                        $"导入电子书「{Path.GetFileName(path)}」。\n\n是：只引用原文件，不复制。\n否：复制一份到资料库。",
+                        "导入电子书", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                    if (answer == MessageBoxResult.Cancel) return;
+                    copy = answer == MessageBoxResult.No;
+                }
+                ImportBook(path, copy);
+                return;
+            }
             BusyChanged?.Invoke(true);
             ProgressChanged?.Invoke("正在读取视频", 0.05);
             var metadata = await _ffmpeg.AnalyzeAsync(path, token);
@@ -132,7 +155,7 @@ public sealed class AppController : IDisposable
                 return;
             }
             BusyChanged?.Invoke(false);
-            var dialog = new ImportDialog(metadata, Displays) { Owner = owner };
+            var dialog = new ImportDialog(metadata, Displays, State.Settings.ImportMode == ImportStorageMode.CopyToLibrary) { Owner = owner };
             if (dialog.ShowDialog() != true || dialog.Options == null) return;
             if (dialog.Options.Resolution == ResolutionChoice.OriginalReference &&
                 (!string.Equals(metadata.Codec, "h264", StringComparison.OrdinalIgnoreCase) ||
@@ -174,6 +197,14 @@ public sealed class AppController : IDisposable
                 var progress = new Progress<double>(value => ProgressChanged?.Invoke("正在转换视频", 0.18 + value * 0.74));
                 await _ffmpeg.TranscodeAsync(metadata.Path, playback, width, height, options.AspectMode, metadata.Duration, progress, token);
             }
+            else if (options.CopyToLibrary)
+            {
+                var extension = Path.GetExtension(metadata.Path);
+                if (string.IsNullOrWhiteSpace(extension)) extension = ".mp4";
+                playback = Path.Combine(staging, "source" + extension);
+                await CopyFileAsync(metadata.Path, playback, token);
+                managed = true;
+            }
             else playback = metadata.Path;
 
             token.ThrowIfCancellationRequested();
@@ -201,7 +232,10 @@ public sealed class AppController : IDisposable
                 Codec = managed ? "H.264" : metadata.Codec,
                 FileSize = new FileInfo(finalPlayback).Length,
                 SourceFingerprint = metadata.Fingerprint,
-                AspectMode = options.AspectMode
+                AspectMode = options.AspectMode,
+                HasAudio = managed && options.Resolution != ResolutionChoice.OriginalReference
+                    ? metadata.HasAudio
+                    : metadata.HasAudio
             };
             State.Wallpapers.Insert(0, item);
             if (options.ApplyAfterImport) SetWallpaper(item, options.TargetDisplayId, options.AspectMode, false);
@@ -241,6 +275,9 @@ public sealed class AppController : IDisposable
     {
         item.LastUsedAt = DateTime.UtcNow;
         item.AspectMode = mode ?? item.AspectMode;
+        UnpinWeb(returnToStudio: _studio != null);
+        State.Settings.ContentMode = ContentMode.Video;
+        State.Settings.PlaylistMode = false;
         if (targetDisplayId == "all")
         {
             State.DefaultWallpaperId = item.Id;
@@ -261,12 +298,18 @@ public sealed class AppController : IDisposable
     public void EnableWallpaper()
     {
         if (_safeMode) throw new InvalidOperationException("当前处于安全模式。请正常退出并重新启动软件后再启用动态壁纸。");
-        if (State.DefaultWallpaperId == null) throw new InvalidOperationException("请先选择一张壁纸。");
+        EnsureContentReady();
         try
         {
             _engine ??= CreateEngine();
             State.Settings.WallpaperEnabled = true;
+            State.Settings.BossHidden = false;
+            State.Settings.TelevisionOff = false;
+            _engine.SharedWeb = _web;
             _engine.Apply(State);
+            HookReader();
+            if (State.Settings.ContentMode == ContentMode.Web)
+                _ = _web.ApplyTransportAsync(State.Settings.AudioMuted, State.Settings.Volume, State.Settings.PlaybackSpeed);
             _store.Save(State);
             StateChanged?.Invoke();
         }
@@ -316,6 +359,9 @@ public sealed class AppController : IDisposable
     {
         var wasDefault = State.DefaultWallpaperId == item.Id;
         State.Assignments.RemoveAll(x => x.WallpaperId == item.Id);
+        State.Settings.Playlist.RemoveAll(x => x == item.Id);
+        if (State.Settings.PlaylistIndex >= State.Settings.Playlist.Count)
+            State.Settings.PlaylistIndex = Math.Max(0, State.Settings.Playlist.Count - 1);
         State.Wallpapers.Remove(item);
         if (wasDefault) State.DefaultWallpaperId = State.Wallpapers.FirstOrDefault()?.Id;
         _store.Save(State);
@@ -330,6 +376,18 @@ public sealed class AppController : IDisposable
 
     public void TogglePause()
     {
+        if (State.Settings.ContentMode == ContentMode.Web)
+        {
+            if (_web.LastSnapshot.Live) return;
+            var pause = !_web.LastSnapshot.Paused;
+            _ = _web.SetPausedAsync(pause);
+            if (_engine != null)
+            {
+                if (pause) _engine.Pause(); else _engine.Resume();
+            }
+            StateChanged?.Invoke();
+            return;
+        }
         if (!IsWallpaperEnabled || _engine == null) return;
         if (_engine.IsPaused) _engine.Resume(); else _engine.Pause();
         StateChanged?.Invoke();
@@ -402,7 +460,8 @@ public sealed class AppController : IDisposable
                 SourceHeight = extracted.Manifest.SourceHeight > 0 ? extracted.Manifest.SourceHeight : metadata.Height,
                 OutputWidth = metadata.Width, OutputHeight = metadata.Height, Duration = metadata.Duration, Fps = metadata.Fps,
                 Codec = metadata.Codec, FileSize = metadata.FileSize, SourceFingerprint = metadata.Fingerprint,
-                AspectMode = string.Equals(extracted.Manifest.PreferredAspectMode, "fill", StringComparison.OrdinalIgnoreCase) ? AspectMode.Fill : AspectMode.Fit
+                AspectMode = string.Equals(extracted.Manifest.PreferredAspectMode, "fill", StringComparison.OrdinalIgnoreCase) ? AspectMode.Fill : AspectMode.Fit,
+                HasAudio = metadata.HasAudio
             };
             State.Wallpapers.Insert(0, item);
             SaveAndNotify();
@@ -435,10 +494,415 @@ public sealed class AppController : IDisposable
         StateChanged?.Invoke();
     }
 
+    public void SetContentMode(ContentMode mode)
+    {
+        if (mode != ContentMode.Web) UnpinWeb(returnToStudio: _studio != null);
+        State.Settings.ContentMode = mode;
+        if (mode == ContentMode.Video) State.Settings.PlaylistMode = State.Settings.Playlist.Count > 1 && State.Settings.PlaylistMode;
+        SaveAndNotify();
+        if (IsWallpaperEnabled) EnableWallpaper();
+    }
+
+    public void SetSceneEnabled(bool enabled)
+    {
+        State.Settings.SceneEnabled = enabled;
+        SaveAndNotify();
+        if (IsWallpaperEnabled) EnableWallpaper();
+    }
+
+    public void SetTelevisionOff(bool off)
+    {
+        State.Settings.TelevisionOff = off;
+        if (off) State.Settings.BossHidden = false;
+        SaveAndNotify();
+        ApplyContentHidden();
+    }
+
+    public void ToggleBossKey()
+    {
+        State.Settings.BossHidden = !State.Settings.BossHidden;
+        if (State.Settings.BossHidden) State.Settings.TelevisionOff = true;
+        else State.Settings.TelevisionOff = false;
+        SaveAndNotify();
+        ApplyContentHidden();
+    }
+
+    public void SetMuted(bool muted)
+    {
+        State.Settings.AudioMuted = muted;
+        _engine?.SetMuted(muted);
+        if (_engine == null) _ = _web.SetMutedAsync(muted);
+        SaveAndNotify();
+    }
+
+    public void SetVolume(double volume)
+    {
+        State.Settings.Volume = Math.Clamp(volume, 0, 100);
+        if (State.Settings.Volume > 0) State.Settings.AudioMuted = false;
+        _engine?.SetVolume(State.Settings.Volume);
+        if (!State.Settings.AudioMuted) _engine?.SetMuted(false);
+        if (_engine == null)
+        {
+            _ = _web.SetVolumeAsync(State.Settings.Volume);
+            if (!State.Settings.AudioMuted) _ = _web.SetMutedAsync(false);
+        }
+        SaveAndNotify();
+    }
+
+    public void SetSpeed(double speed)
+    {
+        State.Settings.PlaybackSpeed = speed;
+        _engine?.SetSpeed(speed);
+        if (_engine == null) _ = _web.SetSpeedAsync(speed);
+        SaveAndNotify();
+    }
+
+    public void Seek(double seconds)
+    {
+        _engine?.Seek(seconds);
+        if (_engine == null) _ = _web.SeekAsync(seconds);
+    }
+
+    public bool TryGetPlayback(out double position, out double duration, out bool paused)
+        => _engine != null
+            ? _engine.TryGetPlayback(out position, out duration, out paused)
+            : EmptyPlayback(out position, out duration, out paused);
+
+    public void SetPlaylistMode(bool enabled)
+    {
+        State.Settings.PlaylistMode = enabled;
+        if (enabled && State.Settings.Playlist.Count == 0 && State.DefaultWallpaperId is { } id)
+            State.Settings.Playlist.Add(id);
+        SaveAndNotify();
+        if (IsWallpaperEnabled && State.Settings.ContentMode == ContentMode.Video)
+            EnableWallpaper();
+    }
+
+    public void SetPlaylist(IEnumerable<Guid> ids, int index = 0)
+    {
+        State.Settings.Playlist = ids.Where(id => State.Wallpapers.Any(x => x.Id == id)).ToList();
+        State.Settings.PlaylistIndex = State.Settings.Playlist.Count == 0 ? 0 : Math.Clamp(index, 0, State.Settings.Playlist.Count - 1);
+        SaveAndNotify();
+    }
+
+    public void AddToPlaylist(WallpaperItem item)
+    {
+        if (!State.Settings.Playlist.Contains(item.Id)) State.Settings.Playlist.Add(item.Id);
+        SaveAndNotify();
+    }
+
+    public void PlayRelative(int delta)
+    {
+        if (State.Settings.Playlist.Count == 0) { SwitchFavorite(delta); return; }
+        var next = State.Settings.PlaylistIndex + delta;
+        if (next < 0) return;
+        if (next >= State.Settings.Playlist.Count)
+        {
+            _engine?.Pause();
+            StateChanged?.Invoke();
+            return;
+        }
+        PlayPlaylistIndex(next);
+    }
+
+    public void PlayPlaylistIndex(int index)
+    {
+        if (State.Settings.Playlist.Count == 0) return;
+        State.Settings.PlaylistIndex = Math.Clamp(index, 0, State.Settings.Playlist.Count - 1);
+        State.Settings.PlaylistMode = true;
+        UnpinWeb(returnToStudio: _studio != null);
+        State.Settings.ContentMode = ContentMode.Video;
+        var id = State.Settings.Playlist[State.Settings.PlaylistIndex];
+        var item = State.Wallpapers.FirstOrDefault(x => x.Id == id);
+        if (item == null) return;
+        State.DefaultWallpaperId = item.Id;
+        item.LastUsedAt = DateTime.UtcNow;
+        SaveAndNotify();
+        if (!IsWallpaperEnabled || _engine == null)
+        {
+            EnableWallpaper();
+            return;
+        }
+        var path = ResolvePlayback(item);
+        if (!File.Exists(path)) throw new FileNotFoundException("视频文件不存在。", path);
+        _engine.LoadMedia(path, loopFile: false);
+        if (!_engine.IsPaused && !State.Settings.TelevisionOff && !State.Settings.BossHidden)
+            _engine.Resume();
+    }
+
+    public void ImportBook(string path, bool copyToLibrary)
+    {
+        var extension = Path.GetExtension(path);
+        var kind = extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? BookKind.Pdf : BookKind.Text;
+        if (kind == BookKind.Text && !extension.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("首版只支持 TXT 和 PDF。");
+        var id = Guid.NewGuid();
+        var stored = path;
+        var managed = false;
+        if (copyToLibrary)
+        {
+            var directory = _store.BookDirectory(id);
+            Directory.CreateDirectory(directory);
+            stored = Path.Combine(directory, "book" + extension);
+            File.Copy(path, stored, true);
+            stored = _store.RelativeToRoot(stored);
+            managed = true;
+        }
+        var book = new BookItem
+        {
+            Id = id,
+            Name = Path.GetFileNameWithoutExtension(path),
+            CreatedAt = DateTime.UtcNow,
+            SourcePath = stored,
+            Kind = kind,
+            IsManagedCopy = managed
+        };
+        State.Books.Insert(0, book);
+        State.Settings.ActiveBookId = book.Id;
+        UnpinWeb(returnToStudio: _studio != null);
+        State.Settings.ContentMode = ContentMode.Reader;
+        SaveAndNotify();
+    }
+
+    public void OpenBook(BookItem book)
+    {
+        book.LastUsedAt = DateTime.UtcNow;
+        State.Settings.ActiveBookId = book.Id;
+        UnpinWeb(returnToStudio: _studio != null);
+        State.Settings.ContentMode = ContentMode.Reader;
+        SaveAndNotify();
+        if (IsWallpaperEnabled) EnableWallpaper();
+    }
+
+    public string? DeleteBook(BookItem book)
+    {
+        State.Books.Remove(book);
+        if (State.Settings.ActiveBookId == book.Id) State.Settings.ActiveBookId = State.Books.FirstOrDefault()?.Id;
+        _store.Save(State);
+        string? warning = null;
+        try { if (book.IsManagedCopy) _store.DeleteManagedBook(book); }
+        catch (Exception) { warning = "记录已删除，但资料库里的副本暂时无法清理。"; }
+        if (IsWallpaperEnabled && State.Settings.ContentMode == ContentMode.Reader) EnableWallpaper();
+        StateChanged?.Invoke();
+        return warning;
+    }
+
+    public void UpdateActiveBookPosition(ReaderPosition position)
+    {
+        var book = ActiveBook;
+        if (book == null) return;
+        book.Position = position;
+        _store.Save(State);
+    }
+
+    public void SetWebUrl(string url)
+    {
+        State.Settings.WebUrl = url.Trim();
+        State.Settings.ContentMode = ContentMode.Web;
+        SaveAndNotify();
+    }
+
+    public void OpenWebStudio(Window owner)
+    {
+        State.Settings.ContentMode = ContentMode.Web;
+        if (string.IsNullOrWhiteSpace(State.Settings.WebUrl))
+            State.Settings.WebUrl = "https://live.bilibili.com";
+        SaveAndNotify();
+        if (_studio == null)
+        {
+            _studio = new WebLoginWindow(this) { Owner = owner };
+            _studio.Show();
+            return;
+        }
+        _studio.Show();
+        _studio.Activate();
+        _studio.RefreshChrome();
+    }
+
+    public async Task PrepareWebStudioAsync(Panel host)
+    {
+        await _web.EnsureAsync(_store.WebProfilePath);
+        if (!_web.PinnedToDesktop)
+            _web.PlaceIn(host, hitTest: true);
+        if (!_web.HasHttpDocument)
+        {
+            var url = string.IsNullOrWhiteSpace(State.Settings.WebUrl) ? "https://live.bilibili.com" : State.Settings.WebUrl;
+            await _web.NavigateAsync(url);
+        }
+        await _web.ApplyTransportAsync(State.Settings.AudioMuted, State.Settings.Volume, State.Settings.PlaybackSpeed);
+    }
+
+    public async Task NavigateWebStudioAsync(string url)
+    {
+        var target = url.Trim();
+        State.Settings.WebUrl = target;
+        State.Settings.ContentMode = ContentMode.Web;
+        await _web.EnsureAsync(_store.WebProfilePath);
+        if (_studio != null && !_web.PinnedToDesktop)
+            _web.PlaceIn(_studio.Host, hitTest: true);
+        await _web.NavigateAsync(target);
+        SaveAndNotify();
+    }
+
+    public async Task SyncWebToDesktopAsync()
+    {
+        if (!_web.HasHttpDocument)
+            throw new InvalidOperationException("请先在独立页面打开直播间或网页，把全屏和弹幕设好，再同步到桌面。");
+        State.Settings.WebUrl = _web.CurrentUrl;
+        State.Settings.ContentMode = ContentMode.Web;
+        _web.PinnedToDesktop = true;
+        EnableWallpaper();
+        await _web.ApplyTransportAsync(State.Settings.AudioMuted, State.Settings.Volume, State.Settings.PlaybackSpeed);
+        DiagnosticsLog.Write("网页已同步到桌面", detail: State.Settings.WebUrl);
+        SaveAndNotify();
+    }
+
+    public void RecallWebFromDesktop(Panel host)
+    {
+        _web.PinnedToDesktop = false;
+        _engine?.ReleaseSharedWeb();
+        _web.PlaceIn(host, hitTest: true);
+        _web.ApplyHostSettings(true);
+        SaveAndNotify();
+    }
+
+    public void NotifyWebStudioClosed() => _studio = null;
+
+    public void PollWebPlayback()
+    {
+        if (State.Settings.ContentMode == ContentMode.Web && _web.IsReady)
+            _ = _web.RefreshStateAsync();
+    }
+
+    private void UnpinWeb(bool returnToStudio)
+    {
+        _web.PinnedToDesktop = false;
+        _engine?.ReleaseSharedWeb();
+        if (returnToStudio && _studio != null)
+        {
+            _web.PlaceIn(_studio.Host, hitTest: true);
+            _web.ApplyHostSettings(true);
+        }
+        else _web.Detach();
+    }
+
+    public void RelocateLibrary(string newRoot)
+    {
+        var wasEnabled = IsWallpaperEnabled;
+        if (wasEnabled) DisableWallpaper();
+        _studio?.Close();
+        _studio = null;
+        _web.Dispose();
+        _web = new WebSession();
+        if (_engine != null) _engine.SharedWeb = _web;
+        _store.Relocate(newRoot);
+        DiagnosticsLog.Configure(_store.LogsPath);
+        State = _store.Load();
+        State.Settings.LibraryRoot = _store.RootPath;
+        _store.Save(State);
+        _store.CleanupOrphanedMedia(State);
+        StateChanged?.Invoke();
+        if (wasEnabled && State.DefaultWallpaperId != null) EnableWallpaper();
+    }
+
+    public void SetBossHotkey(string gesture, bool enabled)
+    {
+        State.Settings.BossHotkey = gesture.Trim();
+        State.Settings.BossHotkeyEnabled = enabled;
+        SaveAndNotify();
+        BossHotkeyChanged?.Invoke();
+    }
+
+    public void SetImportMode(ImportStorageMode mode)
+    {
+        State.Settings.ImportMode = mode;
+        SaveAndNotify();
+    }
+
+    public async Task<string?> WarnIfSilentAsync(WallpaperItem item)
+    {
+        try
+        {
+            var path = ResolvePlayback(item);
+            if (!File.Exists(path)) return null;
+            item.HasAudio = await _ffmpeg.HasAudioTrackAsync(path);
+            SaveAndNotify();
+            if (!item.HasAudio && item.IsManagedVideo)
+                return "这份转换成品没有音轨。旧版本转码会丢掉声音，需要重新导入原视频才能出声。不会覆盖原文件。";
+        }
+        catch { }
+        return null;
+    }
+
+    public ReaderSurface? Reader => _engine?.Reader;
+    public string ResolveBookPath(BookItem book) => _store.ResolveMediaPath(book.SourcePath);
+    public BookItem? ActiveBook => State.Settings.ActiveBookId is { } id
+        ? State.Books.FirstOrDefault(x => x.Id == id)
+        : State.Books.FirstOrDefault();
+    public string WebProfilePath => _store.WebProfilePath;
+    public event Action? BossHotkeyChanged;
+    public bool IsContentHidden => _engine?.IsContentHidden == true || State.Settings.BossHidden || State.Settings.TelevisionOff;
+
+    private void HookReader()
+    {
+        if (_engine?.Reader == null) return;
+        _engine.Reader.PositionChanged -= UpdateActiveBookPosition;
+        _engine.Reader.PositionChanged += UpdateActiveBookPosition;
+    }
+
+    private void EnsureContentReady()
+    {
+        switch (State.Settings.ContentMode)
+        {
+            case ContentMode.Reader:
+                if (ActiveBook == null) throw new InvalidOperationException("请先导入一本 TXT 或 PDF。");
+                break;
+            case ContentMode.Web:
+                if (!_web.HasHttpDocument)
+                    throw new InvalidOperationException("请先打开独立页面，在里面设置好后再点「同步到桌面」。");
+                break;
+            default:
+                if (State.DefaultWallpaperId == null) throw new InvalidOperationException("请先选择一张壁纸。");
+                break;
+        }
+    }
+
+    private void ApplyContentHidden()
+    {
+        if (!IsWallpaperEnabled)
+        {
+            StateChanged?.Invoke();
+            return;
+        }
+        _engine ??= CreateEngine();
+        if (State.Settings.BossHidden && !State.Settings.SceneEnabled)
+            _engine.SetContentHidden(true, false);
+        else
+            _engine.SetContentHidden(State.Settings.BossHidden || State.Settings.TelevisionOff, State.Settings.SceneEnabled);
+    }
+
+    private void HandleMediaEnded()
+    {
+        if (!State.Settings.PlaylistMode) return;
+        if (State.Settings.PlaylistIndex >= State.Settings.Playlist.Count - 1)
+        {
+            _engine?.Pause();
+            StateChanged?.Invoke();
+            return;
+        }
+        try { PlayRelative(1); }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.Write("播放列表切换失败", ex);
+            WallpaperFailed?.Invoke(ex.Message);
+        }
+    }
+
     private WallpaperEngine CreateEngine()
     {
-        var engine = new WallpaperEngine(_store);
+        var engine = new WallpaperEngine(_store) { SharedWeb = _web };
         engine.DisplaysChanged += () => DisplaysChanged?.Invoke();
+        engine.MediaEnded += HandleMediaEnded;
         engine.Failed += message =>
         {
             EmergencyStop();
@@ -447,9 +911,19 @@ public sealed class AppController : IDisposable
         return engine;
     }
 
+    private static bool EmptyPlayback(out double position, out double duration, out bool paused)
+    {
+        position = 0;
+        duration = 0;
+        paused = true;
+        return false;
+    }
+
     public void Dispose()
     {
         _importCancellation?.Cancel();
+        try { _studio?.Close(); } catch { }
         _engine?.Dispose();
+        _web.Dispose();
     }
 }

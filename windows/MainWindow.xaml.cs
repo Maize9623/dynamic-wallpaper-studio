@@ -1,10 +1,14 @@
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Forms = System.Windows.Forms;
 
 namespace DynamicWallpaperStudio;
 
@@ -16,6 +20,12 @@ public partial class MainWindow : Window
     private string? _displayFilter;
     private bool _allowClose;
     private bool _wallpaperOperationBusy;
+    private bool _seekDragging;
+    private bool _hudBusy;
+    private readonly DispatcherTimer _hudTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly BossHotkeyService _hotkey = new();
+    private const double WindowedWidth = 1180;
+    private const double WindowedHeight = 760;
 
     public MainWindow(AppController controller)
     {
@@ -32,6 +42,26 @@ public partial class MainWindow : Window
             Activate();
             System.Windows.MessageBox.Show(this, $"{message}\n\n日志：{_controller.DiagnosticsPath}", "动态壁纸已安全停止", MessageBoxButton.OK, MessageBoxImage.Warning);
         });
+        _controller.BossHotkeyChanged += () => Dispatcher.Invoke(ApplyBossHotkey);
+        _hudTimer.Tick += (_, _) => RefreshHud();
+        SourceInitialized += (_, _) =>
+        {
+            if (HwndSource.FromHwnd(new WindowInteropHelper(this).Handle) is { } source)
+                source.AddHook(LockWindowedResize);
+        };
+        Loaded += (_, _) =>
+        {
+            if (WindowState != WindowState.Maximized)
+            {
+                Width = WindowedWidth;
+                Height = WindowedHeight;
+            }
+            _hotkey.Attach(this);
+            _hotkey.Pressed += () => Dispatcher.Invoke(() => _controller.ToggleBossKey());
+            ApplyBossHotkey();
+            _hudTimer.Start();
+            ScenePreview.Source = LivingRoomView.Load();
+        };
         PopulateDisplays();
         Refresh();
     }
@@ -61,9 +91,18 @@ public partial class MainWindow : Window
         StartWithWindowsBox.IsChecked = _controller.State.Settings.StartWithWindows;
         StorageText.Text = $"资料库占用 {WallpaperItem.FormatBytes(_controller.LibrarySize)}";
         StoragePathText.Text = _controller.LibraryPath;
+        PlaylistModeBox.IsChecked = _controller.State.Settings.PlaylistMode;
+        SceneBox.IsChecked = _controller.State.Settings.SceneEnabled;
+        TelevisionOffBox.IsChecked = _controller.State.Settings.TelevisionOff || _controller.State.Settings.BossHidden;
+        CopyImportBox.IsChecked = _controller.State.Settings.ImportMode == ImportStorageMode.CopyToLibrary;
+        BossHotkeyBox.IsChecked = _controller.State.Settings.BossHotkeyEnabled;
+        BossHotkeyText.Text = _controller.State.Settings.BossHotkey;
+        if (!WebUrlBox.IsKeyboardFocusWithin) WebUrlBox.Text = _controller.State.Settings.WebUrl;
+        RefreshLists();
         RefreshCards();
         if (_selected != null && !_controller.State.Wallpapers.Contains(_selected)) _selected = null;
         UpdateInspector();
+        RefreshHud();
     }
 
     private void RefreshCards()
@@ -142,7 +181,10 @@ public partial class MainWindow : Window
         InspectorFill.IsChecked = _selected.AspectMode == AspectMode.Fill;
         ActiveText.Text = IsWallpaperActive(_selected) ? "● 正在桌面播放" : File.Exists(_controller.ResolvePlayback(_selected)) ? "可设为动态壁纸" : "原视频文件已离线";
         ActiveText.Foreground = IsWallpaperActive(_selected) ? new SolidColorBrush(Color.FromRgb(18, 183, 106)) : new SolidColorBrush(Color.FromRgb(102, 112, 133));
-        MetadataText.Text = $"原始尺寸    {_selected.SourceWidth} × {_selected.SourceHeight}\n输出尺寸    {_selected.OutputWidth} × {_selected.OutputHeight}\n时长          {_selected.DurationText}\n帧率          {_selected.Fps:0.##} fps\n编码          {_selected.Codec}\n文件大小    {_selected.SizeText}\n存储方式    {(_selected.IsManagedVideo ? "仅保留转换成品" : "引用原视频，不复制")}";
+        MetadataText.Text = $"原始尺寸    {_selected.SourceWidth} × {_selected.SourceHeight}\n输出尺寸    {_selected.OutputWidth} × {_selected.OutputHeight}\n时长          {_selected.DurationText}\n帧率          {_selected.Fps:0.##} fps\n编码          {_selected.Codec}\n文件大小    {_selected.SizeText}\n存储方式    {(_selected.IsManagedVideo ? "资料库内文件" : "引用原视频，不复制")}\n音轨          {(_selected.HasAudio ? "有" : "无")}";
+        AudioHintText.Text = !_selected.HasAudio && _selected.IsManagedVideo
+            ? "这份转换成品没有音轨。旧版本转码会丢掉声音，请重新导入原视频才能出声。"
+            : "";
     }
 
     private static BitmapImage? LoadImage(string path)
@@ -165,13 +207,45 @@ public partial class MainWindow : Window
     private void ShowAll(object sender, RoutedEventArgs e) { _filter = LibraryFilter.All; _displayFilter = null; PageTitle.Text = "全部壁纸"; ShowLibrary(); }
     private void ShowFavorites(object sender, RoutedEventArgs e) { _filter = LibraryFilter.Favorites; _displayFilter = null; PageTitle.Text = "收藏"; ShowLibrary(); }
     private void ShowRecent(object sender, RoutedEventArgs e) { _filter = LibraryFilter.Recent; _displayFilter = null; PageTitle.Text = "最近导入"; ShowLibrary(); }
-    private void ShowLibrary() { SettingsPanel.Visibility = Visibility.Collapsed; LibraryScroll.Visibility = Visibility.Visible; RefreshCards(); UpdateInspector(); }
-    private void ShowSettings(object sender, RoutedEventArgs e) { _displayFilter = null; PageTitle.Text = "设置"; LibraryScroll.Visibility = Visibility.Collapsed; SettingsPanel.Visibility = Visibility.Visible; Inspector.Visibility = Visibility.Collapsed; Refresh(); }
+    private void ShowLibrary()
+    {
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        StudioScroll.Visibility = Visibility.Collapsed;
+        LibraryScroll.Visibility = Visibility.Visible;
+        RefreshCards();
+        UpdateInspector();
+    }
+    private void ShowSettings(object sender, RoutedEventArgs e)
+    {
+        _displayFilter = null;
+        PageTitle.Text = "设置";
+        LibraryScroll.Visibility = Visibility.Collapsed;
+        StudioScroll.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Visible;
+        Inspector.Visibility = Visibility.Collapsed;
+        Refresh();
+    }
+    private void ShowStudio(string title, FrameworkElement panel)
+    {
+        _displayFilter = null;
+        PageTitle.Text = title;
+        LibraryScroll.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        StudioScroll.Visibility = Visibility.Visible;
+        Inspector.Visibility = Visibility.Collapsed;
+        PlayerPanel.Visibility = ReaderPanel.Visibility = WebPanel.Visibility = ScenePanel.Visibility = Visibility.Collapsed;
+        panel.Visibility = Visibility.Visible;
+        Refresh();
+    }
+    private void ShowPlayer(object sender, RoutedEventArgs e) => ShowStudio("播放台", PlayerPanel);
+    private void ShowReader(object sender, RoutedEventArgs e) => ShowStudio("电子书", ReaderPanel);
+    private void ShowWeb(object sender, RoutedEventArgs e) => ShowStudio("网页直播", WebPanel);
+    private void ShowScene(object sender, RoutedEventArgs e) => ShowStudio("客厅伪装", ScenePanel);
     private void SearchChanged(object sender, TextChangedEventArgs e) { if (IsLoaded) RefreshCards(); }
 
     private void ImportClicked(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Title = "导入视频或壁纸包", Multiselect = true, Filter = "视频和壁纸包|*.mp4;*.mov;*.m4v;*.dwallpaper.zip|视频|*.mp4;*.mov;*.m4v|壁纸包|*.dwallpaper.zip" };
+        var dialog = new OpenFileDialog { Title = "导入视频、电子书或壁纸包", Multiselect = true, Filter = "支持的文件|*.mp4;*.mov;*.m4v;*.txt;*.pdf;*.dwallpaper.zip|视频|*.mp4;*.mov;*.m4v|电子书|*.txt;*.pdf|壁纸包|*.dwallpaper.zip" };
         if (dialog.ShowDialog(this) == true) foreach (var file in dialog.FileNames) _controller.QueueImport(file, this);
     }
 
@@ -185,6 +259,9 @@ public partial class MainWindow : Window
             System.Windows.MessageBox.Show(this, "原视频文件已经移动或删除。请重新导入或把文件移回原位置。", "视频文件离线", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        var silent = await _controller.WarnIfSilentAsync(_selected);
+        if (silent != null)
+            System.Windows.MessageBox.Show(this, silent, "没有音轨", MessageBoxButton.OK, MessageBoxImage.Information);
         await TrySetWallpaperAsync(_selected, target, mode);
     }
 
@@ -295,12 +372,263 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
     private static bool IsSupported(string path) => Directory.Exists(path) && path.EndsWith(".dwallpaper", StringComparison.OrdinalIgnoreCase) ||
-        File.Exists(path) && new[] { ".mp4", ".mov", ".m4v" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase) || path.EndsWith(".dwallpaper.zip", StringComparison.OrdinalIgnoreCase);
+        File.Exists(path) && new[] { ".mp4", ".mov", ".m4v", ".txt", ".pdf" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase) || path.EndsWith(".dwallpaper.zip", StringComparison.OrdinalIgnoreCase);
+
+    private void RefreshLists()
+    {
+        var selectedPlaylist = PlaylistBox.SelectedItem as WallpaperItem;
+        PlaylistBox.ItemsSource = _controller.State.Settings.Playlist
+            .Select(id => _controller.State.Wallpapers.FirstOrDefault(x => x.Id == id))
+            .OfType<WallpaperItem>()
+            .ToList();
+        if (selectedPlaylist != null) PlaylistBox.SelectedItem = selectedPlaylist;
+        var selectedBook = BooksBox.SelectedItem as BookItem;
+        BooksBox.ItemsSource = _controller.State.Books.ToList();
+        if (selectedBook != null) BooksBox.SelectedItem = selectedBook;
+        else if (_controller.ActiveBook != null) BooksBox.SelectedItem = _controller.ActiveBook;
+        var book = BooksBox.SelectedItem as BookItem ?? _controller.ActiveBook;
+        if (book != null)
+        {
+            AutoTurnBox.IsChecked = book.Position.AutoTurn;
+            AutoTurnSecondsBox.Text = book.Position.AutoTurnSeconds.ToString("0.#", CultureInfo.InvariantCulture);
+        }
+    }
+
+    private void RefreshHud()
+    {
+        if (_hudBusy) return;
+        var web = _controller.State.Settings.ContentMode == ContentMode.Web;
+        if (web) _controller.PollWebPlayback();
+        _controller.TryGetPlayback(out var position, out var duration, out var paused);
+        var snap = _controller.Web.LastSnapshot;
+        var canPlay = !web || snap.CanPlay;
+        var canSeek = !web || snap.CanSeek;
+        var canRate = !web || snap.CanRate;
+        HudPrevButton.IsEnabled = !web;
+        HudNextButton.IsEnabled = !web;
+        HudPlayButton.IsEnabled = canPlay;
+        HudSeek.IsEnabled = canSeek;
+        HudSpeed.IsEnabled = canRate;
+        HudMuteButton.IsEnabled = true;
+        HudVolume.IsEnabled = true;
+        HudPlayButton.Content = paused || !_controller.IsWallpaperEnabled ? "▶" : "⏸";
+        HudMuteButton.Content = _controller.State.Settings.AudioMuted ? "🔇" : "🔊";
+        if (web && snap.Live)
+            HudTimeText.Text = "直播";
+        else if (!_seekDragging && duration > 0)
+        {
+            HudSeek.Maximum = duration;
+            HudSeek.Value = Math.Clamp(position, 0, duration);
+            HudTimeText.Text = $"{FormatClock(position)} / {FormatClock(duration)}";
+        }
+        else
+            HudTimeText.Text = web ? (snap.Ready ? "网页" : "未同步") : $"{FormatClock(position)} / {FormatClock(duration)}";
+        _hudBusy = true;
+        try
+        {
+            if (Math.Abs(HudVolume.Value - _controller.State.Settings.Volume) > 0.5)
+                HudVolume.Value = _controller.State.Settings.Volume;
+            SelectSpeed(_controller.State.Settings.PlaybackSpeed);
+        }
+        finally { _hudBusy = false; }
+    }
+
+    private void SelectSpeed(double speed)
+    {
+        foreach (ComboBoxItem item in HudSpeed.Items)
+            if (item.Tag?.ToString() == speed.ToString(CultureInfo.InvariantCulture) ||
+                (double.TryParse(item.Tag?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && Math.Abs(value - speed) < 0.01))
+            {
+                if (!ReferenceEquals(HudSpeed.SelectedItem, item)) HudSpeed.SelectedItem = item;
+                return;
+            }
+    }
+
+    private void HudPlay(object sender, RoutedEventArgs e) => _controller.TogglePause();
+    private void HudPrev(object sender, RoutedEventArgs e) => TryHud(() => _controller.PlayRelative(-1));
+    private void HudNext(object sender, RoutedEventArgs e) => TryHud(() => _controller.PlayRelative(1));
+    private void HudMute(object sender, RoutedEventArgs e) => _controller.SetMuted(!_controller.State.Settings.AudioMuted);
+    private void HudSeekStart(object sender, MouseButtonEventArgs e) => _seekDragging = true;
+    private void HudSeekEnd(object sender, MouseButtonEventArgs e)
+    {
+        _seekDragging = false;
+        _controller.Seek(HudSeek.Value);
+    }
+    private void HudVolumeChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!IsLoaded || _hudBusy) return;
+        _hudBusy = true;
+        try { _controller.SetVolume(HudVolume.Value); }
+        finally { _hudBusy = false; }
+    }
+    private void HudSpeedChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _hudBusy) return;
+        if (HudSpeed.SelectedItem is ComboBoxItem item &&
+            double.TryParse(item.Tag?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var speed))
+            _controller.SetSpeed(speed);
+    }
+
+    private void PlaylistModeChanged(object sender, RoutedEventArgs e) => _controller.SetPlaylistMode(PlaylistModeBox.IsChecked == true);
+    private void AddSelectedToPlaylist(object sender, RoutedEventArgs e)
+    {
+        if (_selected != null) _controller.AddToPlaylist(_selected);
+    }
+    private void MovePlaylistUp(object sender, RoutedEventArgs e) => MovePlaylist(-1);
+    private void MovePlaylistDown(object sender, RoutedEventArgs e) => MovePlaylist(1);
+    private void MovePlaylist(int delta)
+    {
+        if (PlaylistBox.SelectedItem is not WallpaperItem item) return;
+        var list = _controller.State.Settings.Playlist.ToList();
+        var index = list.IndexOf(item.Id);
+        var next = index + delta;
+        if (index < 0 || next < 0 || next >= list.Count) return;
+        (list[index], list[next]) = (list[next], list[index]);
+        _controller.SetPlaylist(list, next);
+    }
+    private void RemovePlaylistItem(object sender, RoutedEventArgs e)
+    {
+        if (PlaylistBox.SelectedItem is not WallpaperItem item) return;
+        var list = _controller.State.Settings.Playlist.Where(id => id != item.Id).ToList();
+        _controller.SetPlaylist(list, Math.Min(_controller.State.Settings.PlaylistIndex, Math.Max(0, list.Count - 1)));
+    }
+    private void PlayPlaylistHere(object sender, RoutedEventArgs e)
+    {
+        if (PlaylistBox.SelectedItem is not WallpaperItem item) return;
+        var index = _controller.State.Settings.Playlist.IndexOf(item.Id);
+        if (index >= 0) TryHud(() => _controller.PlayPlaylistIndex(index));
+    }
+
+    private void ImportBookClicked(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Title = "导入电子书", Multiselect = true, Filter = "电子书|*.txt;*.pdf" };
+        if (dialog.ShowDialog(this) == true)
+            foreach (var file in dialog.FileNames)
+                _controller.QueueImport(file, this);
+    }
+    private void OpenBookClicked(object sender, RoutedEventArgs e)
+    {
+        if (BooksBox.SelectedItem is BookItem book) TryHud(() => _controller.OpenBook(book));
+    }
+    private void DeleteBookClicked(object sender, RoutedEventArgs e)
+    {
+        if (BooksBox.SelectedItem is not BookItem book) return;
+        if (System.Windows.MessageBox.Show(this, $"删除「{book.Name}」的资料库记录？不会改原文件。", "删除电子书", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var warning = _controller.DeleteBook(book);
+        if (warning != null) System.Windows.MessageBox.Show(this, warning, "稍后清理文件", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+    private void ReaderPrev(object sender, RoutedEventArgs e) => _controller.Reader?.PreviousPage();
+    private void ReaderNext(object sender, RoutedEventArgs e) => _controller.Reader?.NextPage();
+    private void ReaderSmaller(object sender, RoutedEventArgs e) => ChangeReaderFont(-2);
+    private void ReaderLarger(object sender, RoutedEventArgs e) => ChangeReaderFont(2);
+    private void ChangeReaderFont(int delta)
+    {
+        var reader = _controller.Reader;
+        var book = _controller.ActiveBook;
+        if (reader == null || book == null) return;
+        reader.ApplyFontSize(book.Position.FontSize + delta);
+    }
+    private void ReaderLight(object sender, RoutedEventArgs e) => _controller.Reader?.ApplyTheme(ReaderTheme.Light);
+    private void ReaderDark(object sender, RoutedEventArgs e) => _controller.Reader?.ApplyTheme(ReaderTheme.Dark);
+    private void AutoTurnChanged(object sender, RoutedEventArgs e)
+    {
+        var seconds = ParseAutoTurnSeconds();
+        _controller.Reader?.SetAutoTurn(AutoTurnBox.IsChecked == true, seconds);
+        if (_controller.ActiveBook != null) _controller.ActiveBook.Position.AutoTurn = AutoTurnBox.IsChecked == true;
+    }
+    private void AutoTurnSecondsChanged(object sender, RoutedEventArgs e)
+    {
+        var seconds = ParseAutoTurnSeconds();
+        _controller.Reader?.SetAutoTurn(AutoTurnBox.IsChecked == true, seconds);
+    }
+    private double ParseAutoTurnSeconds()
+        => double.TryParse(AutoTurnSecondsBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 8;
+
+    private void OpenWebStudioClicked(object sender, RoutedEventArgs e)
+    {
+        _controller.SetWebUrl(string.IsNullOrWhiteSpace(WebUrlBox.Text) ? "https://live.bilibili.com" : WebUrlBox.Text);
+        TryHud(() => _controller.OpenWebStudio(this));
+    }
+
+    private void ApplySceneClicked(object sender, RoutedEventArgs e)
+        => TryHud(() => _controller.SetSceneEnabled(SceneBox.IsChecked == true));
+    private void TelevisionOffChanged(object sender, RoutedEventArgs e)
+    {
+        var off = sender is CheckBox ? TelevisionOffBox.IsChecked == true : !_controller.State.Settings.TelevisionOff;
+        _controller.SetTelevisionOff(off);
+    }
+    private void BossClicked(object sender, RoutedEventArgs e) => _controller.ToggleBossKey();
+    private void CopyImportChanged(object sender, RoutedEventArgs e)
+        => _controller.SetImportMode(CopyImportBox.IsChecked == true ? ImportStorageMode.CopyToLibrary : ImportStorageMode.Reference);
+    private void BossHotkeyChanged(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _controller.SetBossHotkey(BossHotkeyText.Text, BossHotkeyBox.IsChecked == true);
+            ApplyBossHotkey();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "无法更新老板键", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+    private void ApplyBossHotkey()
+    {
+        try { _hotkey.Apply(_controller.State.Settings.BossHotkey, _controller.State.Settings.BossHotkeyEnabled); }
+        catch (Exception ex) { DiagnosticsLog.Write("注册老板键失败", ex); }
+    }
+    private void ChangeLibraryClicked(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = "选择资料库文件夹。视频和书可以仍放在原位置，这里只放资料库记录和可选副本。",
+            UseDescriptionForTitle = true,
+            SelectedPath = _controller.LibraryPath
+        };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK) return;
+        try { _controller.RelocateLibrary(dialog.SelectedPath); }
+        catch (Exception ex) { System.Windows.MessageBox.Show(this, ex.Message, "无法更改资料库", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private void TryHud(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) { System.Windows.MessageBox.Show(this, ex.Message, "无法完成操作", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private static string FormatClock(double seconds)
+    {
+        var total = Math.Max(0, (int)Math.Round(seconds));
+        return total >= 3600 ? $"{total / 3600}:{total / 60 % 60:00}:{total % 60:00}" : $"{total / 60}:{total % 60:00}";
+    }
+
+    private IntPtr LockWindowedResize(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int wmNcHitTest = 0x0084;
+        const int htClient = 1;
+        if (msg == wmNcHitTest && WindowState != WindowState.Maximized)
+        {
+            var packed = lParam.ToInt32();
+            var point = PointFromScreen(new System.Windows.Point((short)packed, (short)(packed >> 16)));
+            const double edge = 8;
+            if (point.X <= edge || point.Y <= edge || point.X >= ActualWidth - edge || point.Y >= ActualHeight - edge)
+            {
+                handled = true;
+                return new IntPtr(htClient);
+            }
+        }
+        return IntPtr.Zero;
+    }
 
     public void AllowApplicationClose() => _allowClose = true;
     private void WindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_allowClose) return;
+        if (_allowClose)
+        {
+            _hudTimer.Stop();
+            _hotkey.Dispose();
+            return;
+        }
         e.Cancel = true;
         Hide();
     }

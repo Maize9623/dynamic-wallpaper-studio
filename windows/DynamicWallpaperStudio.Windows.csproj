@@ -18,13 +18,13 @@
     <RootNamespace>DynamicWallpaperStudio</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/AppIcon.ico</ApplicationIcon>
-    <Version>1.0.5</Version>
-    <AssemblyVersion>1.0.5.0</AssemblyVersion>
-    <FileVersion>1.0.5.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Authors>Maize9623 and contributors</Authors>
     <Company>Maize9623</Company>
-    <Product>动态壁纸工作室</Product>
-    <Description>Windows 动态壁纸资料库与播放器（Preview）</Description>
+    <Product>摸鱼神器</Product>
+    <Description>Windows 动态壁纸、电子书、网页直播与客厅伪装（Preview）</Description>
     <RepositoryUrl>https://github.com/Maize9623/dynamic-wallpaper-studio</RepositoryUrl>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <LangVersion>latest</LangVersion>
@@ -34,7 +34,12 @@
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="Assets/AppIcon.png" />
+    <Resource Include="Assets/LivingRoom.jpg" />
+    <Content Include="Assets/LivingRoom.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets/AppIcon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Samples\StarterWallpaper.mp4" Condition="Exists('Samples\StarterWallpaper.mp4')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Samples\StarterPoster.jpg" Condition="Exists('Samples\StarterPoster.jpg')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

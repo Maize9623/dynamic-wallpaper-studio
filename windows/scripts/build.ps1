@@ -19,7 +19,7 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $projectFile = Join-Path $projectRoot "DynamicWallpaperStudio.Windows.csproj"
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $projectRoot "artifacts\DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable"
+    $OutputDirectory = Join-Path $projectRoot "artifacts\DynamicWallpaperStudio-Windows-x64-1.1.0-OnlinePortable"
 }
 $publishRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 $zipPath = $publishRoot + ".zip"

@@ -103,7 +103,8 @@ internal static class NativeDesktop
         IntPtr hwnd,
         System.Drawing.Rectangle bounds,
         bool useLayeredPresentation = false,
-        uint expectedProcessId = 0)
+        uint expectedProcessId = 0,
+        bool compositionWindow = false)
     {
         if (!IsWindowHandle(hwnd)) return false;
         var target = FindTarget();
@@ -120,15 +121,18 @@ internal static class NativeDesktop
             if (!TrySetWindowLongPtr(hwnd, GwlStyle, style))
                 return LogAttachFailure("设置 WS_CHILD 失败", hwnd, target);
 
-            var exStyle = (originalExStyle & ~(WsExAppWindow | WsExTopmost | WsExLayered))
-                | WsExTransparent
-                | WsExToolWindow
-                | WsExNoActivate;
-            if (target.RaisedMode || useLayeredPresentation) exStyle |= WsExLayered;
+            // WPF/WebView2 composition HWNDs already own a swapchain. Forcing
+            // WS_EX_LAYERED + SetLayeredWindowAttributes returns ERROR_INVALID_PARAMETER (87)
+            // on Windows 11 Raised Desktop and aborts the whole wallpaper apply.
+            var exStyle = originalExStyle & ~(WsExAppWindow | WsExTopmost);
+            if (!compositionWindow) exStyle &= ~WsExLayered;
+            exStyle |= WsExTransparent | WsExToolWindow | WsExNoActivate;
+            var useLayered = !compositionWindow && (target.RaisedMode || useLayeredPresentation);
+            if (useLayered) exStyle |= WsExLayered;
             if (!TrySetWindowLongPtr(hwnd, GwlExStyle, exStyle))
                 return LogAttachFailure("设置壁纸扩展样式失败", hwnd, target);
 
-            if (target.RaisedMode || useLayeredPresentation)
+            if (useLayered)
             {
                 // WS_EX_LAYERED and its alpha must be established before SetParent.
                 // Keep alpha at zero until the renderer confirms its first frame; this
@@ -171,7 +175,7 @@ internal static class NativeDesktop
             if (!SetWindowPos(hwnd, HwndBottom, point.X, point.Y, bounds.Width, bounds.Height, positionFlags))
                 return LogAttachFailure("设置壁纸窗口尺寸或位置失败", hwnd, target);
 
-            if (!ValidateAttachment(hwnd, target, bounds, expectedProcessId, target.RaisedMode || useLayeredPresentation))
+            if (!ValidateAttachment(hwnd, target, bounds, expectedProcessId, useLayered))
                 return LogAttachFailure("壁纸窗口附着后校验失败", hwnd, target);
 
             success = true;
@@ -203,6 +207,13 @@ internal static class NativeDesktop
             return SetLayeredWindowAttributes(hwnd, 0, visible ? (byte)255 : (byte)0, LwaAlpha);
         _ = ShowWindow(hwnd, visible ? SwShowNoActivate : SwHide);
         return IsWindowVisible(hwnd) == visible;
+    }
+
+    public static bool ShowWithoutActivating(IntPtr hwnd)
+    {
+        if (!IsWindowHandle(hwnd)) return false;
+        _ = ShowWindow(hwnd, SwShowNoActivate);
+        return IsWindowVisible(hwnd);
     }
 
     public static IntPtr FindUniqueTopLevelWindowForProcess(uint processId)
@@ -245,7 +256,7 @@ internal static class NativeDesktop
         if (!IsWindowHandle(hwnd)) return false;
         DesktopTarget? target;
         lock (TargetGate) target = _lastTarget;
-        return target != null && IsShellTargetValid(target) && ValidateAttachment(hwnd, target);
+        return target != null && IsShellTargetValid(target) && ValidateAttachment(hwnd, target, logFailures: false);
     }
 
     public static bool IsAttached(
@@ -259,7 +270,7 @@ internal static class NativeDesktop
         lock (TargetGate) target = _lastTarget;
         return target != null
             && IsShellTargetValid(target)
-            && ValidateAttachment(hwnd, target, expectedBounds, expectedProcessId, requireLayered);
+            && ValidateAttachment(hwnd, target, expectedBounds, expectedProcessId, requireLayered, logFailures: false);
     }
 
     private static DesktopTarget? TryFindRaisedTarget(IntPtr progman, uint explorerPid)
@@ -315,28 +326,47 @@ internal static class NativeDesktop
         DesktopTarget target,
         System.Drawing.Rectangle? expectedBounds = null,
         uint expectedProcessId = 0,
-        bool requireLayered = false)
+        bool requireLayered = false,
+        bool logFailures = true)
     {
-        if (!IsWindowHandle(hwnd) || !IsShellTargetValid(target)) return false;
-        if (GetParent(hwnd) != target.Parent || !HasStyle(hwnd, GwlStyle, WsChild)) return false;
+        if (!IsWindowHandle(hwnd) || !IsShellTargetValid(target))
+            return LogValidateFailure(hwnd, target, "桌面目标无效", logFailures);
+        if (GetParent(hwnd) != target.Parent)
+            return LogValidateFailure(hwnd, target, $"父窗口不匹配 Parent={FormatHandle(GetParent(hwnd))}", logFailures);
+        if (!HasStyle(hwnd, GwlStyle, WsChild))
+            return LogValidateFailure(hwnd, target, "缺少 WS_CHILD", logFailures);
         var windowExStyle = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        if ((windowExStyle & (WsExAppWindow | WsExTopmost)) != 0) return false;
-        if ((target.RaisedMode || requireLayered) && (windowExStyle & WsExLayered) == 0) return false;
-        if (expectedProcessId != 0 && !HasProcess(hwnd, expectedProcessId)) return false;
+        if ((windowExStyle & (WsExAppWindow | WsExTopmost)) != 0)
+            return LogValidateFailure(hwnd, target, $"扩展样式仍含顶层标志 Ex=0x{windowExStyle:X}", logFailures);
+        if (requireLayered && (windowExStyle & WsExLayered) == 0)
+            return LogValidateFailure(hwnd, target, "缺少 WS_EX_LAYERED", logFailures);
+        if (expectedProcessId != 0 && !HasProcess(hwnd, expectedProcessId))
+            return LogValidateFailure(hwnd, target, $"进程不匹配 Expected={expectedProcessId}", logFailures);
         if (expectedBounds is { } bounds)
         {
-            if (!GetWindowRect(hwnd, out var actual)) return false;
+            if (!GetWindowRect(hwnd, out var actual))
+                return LogValidateFailure(hwnd, target, "无法读取窗口矩形", logFailures);
             if (Math.Abs(actual.Left - bounds.Left) > 2
                 || Math.Abs(actual.Top - bounds.Top) > 2
                 || Math.Abs((actual.Right - actual.Left) - bounds.Width) > 2
                 || Math.Abs((actual.Bottom - actual.Top) - bounds.Height) > 2)
-                return false;
+                return LogValidateFailure(hwnd, target,
+                    $"尺寸不匹配 Actual=({actual.Left},{actual.Top},{actual.Right - actual.Left}x{actual.Bottom - actual.Top}) Expected={bounds}", logFailures);
         }
         if (!target.RaisedMode) return true;
-        return HasStyle(target.Progman, GwlExStyle, WsExNoRedirectionBitmap)
-            && HasStyle(target.DefView, GwlExStyle, WsExLayered)
-            && GetLastDirectChild(target.Progman) == target.WorkerW
-            && IsBetweenInDirectChildZOrder(target.Progman, target.DefView, hwnd, target.WorkerW);
+        if (!HasStyle(target.Progman, GwlExStyle, WsExNoRedirectionBitmap)
+            || !HasStyle(target.DefView, GwlExStyle, WsExLayered)
+            || GetLastDirectChild(target.Progman) != target.WorkerW
+            || !IsBetweenInDirectChildZOrder(target.Progman, target.DefView, hwnd, target.WorkerW))
+            return LogValidateFailure(hwnd, target, "Raised Desktop Z-order 不匹配", logFailures);
+        return true;
+    }
+
+    private static bool LogValidateFailure(IntPtr hwnd, DesktopTarget target, string reason, bool logFailures)
+    {
+        if (logFailures)
+            DiagnosticsLog.Write("壁纸窗口附着校验未通过", detail: $"{reason}; Hwnd={FormatHandle(hwnd)}; {Describe(target)}");
+        return false;
     }
 
     private static bool IsShellTargetValid(DesktopTarget target)

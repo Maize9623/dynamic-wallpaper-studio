@@ -4,6 +4,10 @@ namespace DynamicWallpaperStudio;
 
 public enum AspectMode { Fit, Fill }
 public enum LibraryFilter { All, Favorites, Recent, Settings }
+public enum ContentMode { Video, Reader, Web }
+public enum ImportStorageMode { Reference, CopyToLibrary }
+public enum ReaderTheme { Dark, Light }
+public enum BookKind { Text, Pdf }
 
 public sealed class WallpaperItem
 {
@@ -26,6 +30,7 @@ public sealed class WallpaperItem
     public long FileSize { get; set; }
     public string SourceFingerprint { get; set; } = "";
     public AspectMode AspectMode { get; set; } = AspectMode.Fit;
+    public bool HasAudio { get; set; } = true;
 
     [JsonIgnore] public string ResolutionText => $"{OutputWidth} × {OutputHeight}";
     [JsonIgnore] public string DurationText
@@ -62,12 +67,51 @@ public sealed class AppSettings
     public bool PauseWhenDisplayChanges { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool WallpaperEnabled { get; set; }
+    public ContentMode ContentMode { get; set; } = ContentMode.Video;
+    public bool SceneEnabled { get; set; }
+    public bool TelevisionOff { get; set; }
+    public bool BossHidden { get; set; }
+    public bool PlaylistMode { get; set; }
+    public List<Guid> Playlist { get; set; } = [];
+    public int PlaylistIndex { get; set; }
+    public bool AudioMuted { get; set; } = true;
+    public double Volume { get; set; } = 70;
+    public double PlaybackSpeed { get; set; } = 1;
+    public string WebUrl { get; set; } = "";
+    public string BossHotkey { get; set; } = "Ctrl+Alt+B";
+    public bool BossHotkeyEnabled { get; set; } = true;
+    public ImportStorageMode ImportMode { get; set; } = ImportStorageMode.Reference;
+    public string? LibraryRoot { get; set; }
+    public Guid? ActiveBookId { get; set; }
+}
+
+public sealed class BookItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "未命名电子书";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastUsedAt { get; set; }
+    public string SourcePath { get; set; } = "";
+    public BookKind Kind { get; set; } = BookKind.Text;
+    public bool IsManagedCopy { get; set; }
+    public ReaderPosition Position { get; set; } = new();
+}
+
+public sealed class ReaderPosition
+{
+    public int PageIndex { get; set; }
+    public double ScrollOffset { get; set; }
+    public double FontSize { get; set; } = 22;
+    public ReaderTheme Theme { get; set; } = ReaderTheme.Dark;
+    public bool AutoTurn { get; set; }
+    public double AutoTurnSeconds { get; set; } = 8;
 }
 
 public sealed class LibraryState
 {
     public int SchemaVersion { get; set; } = 1;
     public List<WallpaperItem> Wallpapers { get; set; } = [];
+    public List<BookItem> Books { get; set; } = [];
     public Guid? DefaultWallpaperId { get; set; }
     public AspectMode DefaultAspectMode { get; set; } = AspectMode.Fit;
     public List<DisplayAssignment> Assignments { get; set; } = [];
@@ -87,7 +131,8 @@ public sealed record VideoMetadata(
     double Fps,
     string Codec,
     long FileSize,
-    string Fingerprint)
+    string Fingerprint,
+    bool HasAudio = true)
 {
     public string ResolutionText => $"{Width} × {Height}";
 }
@@ -103,6 +148,7 @@ public sealed class ImportOptions
     public AspectMode AspectMode { get; set; } = AspectMode.Fit;
     public bool Favorite { get; set; }
     public bool ApplyAfterImport { get; set; } = true;
+    public bool CopyToLibrary { get; set; }
     public string TargetDisplayId { get; set; } = "all";
 }
 

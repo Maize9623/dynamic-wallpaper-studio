@@ -56,12 +56,13 @@
           <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,4,0,10">
             <CheckBox x:Name="FavoriteBox" Content="加入收藏" Margin="0,4"/>
             <CheckBox x:Name="ApplyBox" Content="制作后立即设为动态壁纸" IsChecked="True" Margin="0,7,0,4"/>
+            <CheckBox x:Name="CopyBox" Content="复制一份到资料库（默认只引用原文件，不强制拷到 C 盘）" Margin="0,7,0,4"/>
           </StackPanel>
 
           <Border Grid.Row="6" Grid.ColumnSpan="2" Background="#EEF6FF" CornerRadius="9" Padding="12" Margin="0,14,0,0">
             <TextBlock x:Name="StorageHint" TextWrapping="Wrap" Foreground="#175CD3"/>
           </Border>
-          <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="动态壁纸会静音循环播放；原视频不会被修改。转换任务采用低优先级，长视频不会整段载入内存。"
+          <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="默认只引用你选择的原文件，不会复制到 C 盘。需要转码时会保留音轨。桌面播放默认静音，可在播放条里开声。"
                      TextWrapping="Wrap" Foreground="#667085" Margin="0,14,0,0"/>
         </Grid>
       </ScrollViewer>

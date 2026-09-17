@@ -11,6 +11,16 @@ public static class DiagnosticsLog
     public static string DirectoryPath => _directory ??= SelectDirectory();
     public static string LatestLogPath => Path.Combine(DirectoryPath, "latest.log");
 
+    public static void Configure(string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory)) return;
+        lock (Gate)
+        {
+            Directory.CreateDirectory(directory);
+            _directory = directory;
+        }
+    }
+
     public static void Write(string phase, Exception? exception = null, string? detail = null)
     {
         try

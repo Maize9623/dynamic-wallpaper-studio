@@ -2,7 +2,7 @@
 
 Windows 版使用 .NET 10 WPF 构建，通过 mpv 的 JSON IPC 播放视频，并通过 FFmpeg 检查媒体与按需转换。壁纸窗口会附着到 Explorer 的 Progman/WorkerW 桌面层；Windows 11 Raised Desktop 另有兼容路径。
 
-当前版本为 **1.0.5 Preview**。
+当前版本为 **1.1.0「摸鱼神器」Preview**（本分支）。`main` 上的公开 Windows 源码仍是 1.0.5。
 
 ## 系统要求
 
@@ -59,7 +59,7 @@ Windows 版使用 .NET 10 WPF 构建，通过 mpv 的 JSON IPC 播放视频，�
 默认生成 self-contained 的 Windows x64 目录，但**不会**把 mpv/FFmpeg 放进产物；最终用户首次运行时由应用获取：
 
 ```text
-windows/artifacts/DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable/
+windows/artifacts/DynamicWallpaperStudio-Windows-x64-1.1.0-OnlinePortable/
 ```
 
 生成可上传到 Release 的 ZIP 与同名 SHA-256 文件：
@@ -68,7 +68,7 @@ windows/artifacts/DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable/
 ./windows/scripts/build.ps1 -CreateZip
 ```
 
-默认文件名为 `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip`，并同时生成同名 `.zip.sha256` 文件。正式 Release 还会把各平台哈希合并公布为 `SHA256SUMS.txt`。
+默认文件名为 `DynamicWallpaperStudio-Windows-x64-1.1.0-OnlinePortable.zip`，并同时生成同名 `.zip.sha256` 文件。正式 Release 还会把各平台哈希合并公布为 `SHA256SUMS.txt`。本分支尚未替代 `main` 上的 1.0.5 官方安装包。
 
 仅在内部测试确实需要把已下载工具放进构建目录时，显式执行：
 
@@ -127,4 +127,12 @@ windows/Samples/StarterPoster.jpg
 - 对应 Vulkan Loader 的许可证声明
 - 你自己的代码签名与私钥安全
 
-`1.0.5` 仍是 Preview：播放器内核和 Windows 桌面层兼容性没有变成微软支持的正式 API，建议先在非关键电脑上试用。退出软件或运行 `紧急关闭动态壁纸.cmd` 可恢复普通桌面。
+`1.1.0` 仍是 Preview：播放器内核和 Windows 桌面层兼容性没有变成微软支持的正式 API，建议先在非关键电脑上试用。退出软件或运行 `紧急关闭动态壁纸.cmd` 可恢复普通桌面。
+
+## 1.1.0 功能更新
+
+- 连续播放条：播放/暂停、上一首/下一首、进度、音量、静音、倍速；默认静音。列表播完最后一条即停。
+- 资料库路径可选；导入默认引用原文件。
+- 本地 TXT / PDF 阅读，记住字号、主题和位置。
+- 网页直播：独立页面登录并设好全屏/弹幕后「同步到桌面」。桌面层不能点击。直播同步静音，点播可再控制播放和倍速。独立 WebView2 配置，不破解 DRM。
+- 客厅电视伪装、关电视、老板键。客厅背景在 Windows 11 Raised Desktop 上使用与 mpv 相同的原生分层窗口。

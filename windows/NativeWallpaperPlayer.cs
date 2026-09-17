@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Drawing;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Forms = System.Windows.Forms;
@@ -13,10 +15,11 @@ namespace DynamicWallpaperStudio;
 /// </summary>
 public sealed class NativeWallpaperPlayer : IDisposable
 {
-    private static readonly TimeSpan IpcCommandTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan IpcCommandTimeout = TimeSpan.FromSeconds(8);
     private readonly Forms.Screen _screen;
-    private readonly string _mediaPath;
+    private string _mediaPath;
     private readonly AspectMode _aspectMode;
+    private Rectangle _targetBounds;
     private readonly string _windowTitle = $"DWPS-{Guid.NewGuid():N}";
     private readonly string _pipeName = $"dwps-mpv-{Guid.NewGuid():N}";
     private readonly ManualResetEventSlim _fileLoaded = new(false);
@@ -51,15 +54,29 @@ public sealed class NativeWallpaperPlayer : IDisposable
     private int _observedOsdHeight;
     private long _activePlaylistEntryId = -1;
     private long _eventPlaylistEntryId = -1;
+    private bool _loopFile = true;
+    private bool _muted = true;
+    private double _volume = 70;
+    private double _speed = 1;
+    private bool _ignoreEndFile;
 
-    public NativeWallpaperPlayer(Forms.Screen screen, string mediaPath, AspectMode aspectMode)
+    public NativeWallpaperPlayer(
+        Forms.Screen screen,
+        string mediaPath,
+        AspectMode aspectMode,
+        Rectangle? bounds = null,
+        bool loopFile = true)
     {
         _screen = screen;
         _mediaPath = mediaPath;
         _aspectMode = aspectMode;
+        _targetBounds = bounds ?? screen.Bounds;
+        _loopFile = loopFile;
     }
 
     public event EventHandler<Exception>? PlaybackFailed;
+    public event EventHandler? MediaEnded;
+    public Rectangle TargetBounds => _targetBounds;
 
     public bool IsAlive
     {
@@ -78,7 +95,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
     public bool IsAttachedToDesktop => _reattachHealthy
         && IsAlive
         && _process != null
-        && NativeDesktop.IsAttached(_handle, _screen.Bounds, (uint)_process.Id, _useLayeredPresentation);
+        && NativeDesktop.IsAttached(_handle, _targetBounds, (uint)_process.Id, _useLayeredPresentation);
 
     public void Prepare()
     {
@@ -116,7 +133,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
             _ = Task.Run(ReadStandardErrorAsync);
 
             DiagnosticsLog.Write("mpv 原生壁纸播放器已启动",
-                detail: $"Pid={_process.Id}; Display={_screen.DeviceName}; Bounds={_screen.Bounds}; Mode={_aspectMode}; File={_mediaPath}");
+                detail: $"Pid={_process.Id}; Display={_screen.DeviceName}; Bounds={_targetBounds}; Mode={_aspectMode}; Loop={_loopFile}; File={_mediaPath}");
 
             _ipc = MpvIpcClient.ConnectAsync(_pipeName, TimeSpan.FromSeconds(10))
                 .GetAwaiter().GetResult();
@@ -131,10 +148,12 @@ public sealed class NativeWallpaperPlayer : IDisposable
             // Attach adds WS_EX_LAYERED and alpha=0 before SetParent; after that we
             // show it logically (still alpha=0) so the VO can resize and present.
             _ = NativeDesktop.SetPresentationVisible(_handle, false);
-            if (!NativeDesktop.Attach(_handle, _screen.Bounds, _useLayeredPresentation, (uint)_process.Id))
+            if (!NativeDesktop.Attach(_handle, _targetBounds, _useLayeredPresentation, (uint)_process.Id))
                 throw new InvalidOperationException($"无法把 mpv 附着到桌面层：{_screen.DeviceName}" + ErrorTail());
             EnsureTransparentWindowIsShown();
             WaitForNativeGeometry(TimeSpan.FromSeconds(4), requireMpvDimensions: false);
+            // After SetParent, mpv's VO thread can stall IPC for a few seconds.
+            Thread.Sleep(250);
 
             ObserveRenderProperties();
             ApplyAspectModeOverIpc();
@@ -152,12 +171,13 @@ public sealed class NativeWallpaperPlayer : IDisposable
             // File-local options can be reset when a new entry starts. Re-apply the
             // requested Fit/Fill mode after file-loaded through the supported IPC.
             ApplyAspectModeOverIpc();
+            ApplyAudioState();
             WaitForMpvSignal(_playbackRestart, "提交首个视频帧", TimeSpan.FromSeconds(15));
 
             // A VO reconfiguration must not be allowed to restore top-level styles
             // or a source-sized window. Reassert the desktop parent and 4K bounds
             // while alpha remains zero, then wait for mpv's swapchain to follow it.
-            if (!NativeDesktop.Attach(_handle, _screen.Bounds, _useLayeredPresentation, (uint)_process.Id))
+            if (!NativeDesktop.Attach(_handle, _targetBounds, _useLayeredPresentation, (uint)_process.Id))
                 throw new InvalidOperationException("视频加载后无法重新确认桌面窗口层级。" + ErrorTail());
             EnsureTransparentWindowIsShown();
             WaitForNativeGeometry(TimeSpan.FromSeconds(10), requireMpvDimensions: true);
@@ -165,7 +185,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
             _prepared = true;
             DiagnosticsLog.Write("mpv 首帧与渲染尺寸校验通过",
                 detail: $"Pid={_process.Id}; Hwnd=0x{_handle.ToInt64():X}; Display={_screen.DeviceName}; "
-                    + $"Client={_screen.Bounds.Width}x{_screen.Bounds.Height}; "
+                    + $"Client={_targetBounds.Width}x{_targetBounds.Height}; "
                     + $"Osd={Volatile.Read(ref _observedOsdWidth)}x{Volatile.Read(ref _observedOsdHeight)}");
         }
         catch
@@ -232,7 +252,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
         // correctly parented but permanently alpha-zero window for a healthy one.
         _reattachHealthy = false;
         _ = NativeDesktop.SetPresentationVisible(_handle, false);
-        var attached = NativeDesktop.Attach(_handle, _screen.Bounds, _useLayeredPresentation, (uint)_process.Id);
+        var attached = NativeDesktop.Attach(_handle, _targetBounds, _useLayeredPresentation, (uint)_process.Id);
         if (attached)
         {
             try
@@ -276,6 +296,90 @@ public sealed class NativeWallpaperPlayer : IDisposable
             _paused = false;
         }
         catch (Exception ex) { DiagnosticsLog.Write("通过 mpv IPC 恢复播放失败", ex); }
+    }
+
+    public void SetMuted(bool muted)
+    {
+        _muted = muted;
+        try { if (IsAlive && _ipc != null) IpcSetProperty("mute", muted); }
+        catch (Exception ex) { DiagnosticsLog.Write("设置静音失败", ex); }
+    }
+
+    public void SetVolume(double volume)
+    {
+        _volume = Math.Clamp(volume, 0, 100);
+        try { if (IsAlive && _ipc != null) IpcSetProperty("volume", _volume); }
+        catch (Exception ex) { DiagnosticsLog.Write("设置音量失败", ex); }
+    }
+
+    public void SetSpeed(double speed)
+    {
+        _speed = speed <= 0 ? 1 : speed;
+        try { if (IsAlive && _ipc != null) IpcSetProperty("speed", _speed); }
+        catch (Exception ex) { DiagnosticsLog.Write("设置倍速失败", ex); }
+    }
+
+    public void Seek(double seconds)
+    {
+        if (!IsAlive || _ipc == null) return;
+        try { IpcSetProperty("time-pos", Math.Max(0, seconds)); }
+        catch (Exception ex) { DiagnosticsLog.Write("跳转进度失败", ex); }
+    }
+
+    public bool TryGetPlayback(out double position, out double duration, out bool paused)
+    {
+        position = 0;
+        duration = 0;
+        paused = _paused;
+        if (!IsAlive || _ipc == null) return false;
+        try
+        {
+            position = ReadDoubleProperty("time-pos");
+            duration = ReadDoubleProperty("duration");
+            paused = ReadBoolProperty("pause") ?? _paused;
+            _paused = paused;
+            return duration > 0 || position >= 0;
+        }
+        catch { return false; }
+    }
+
+    public void SetLoopFile(bool loop)
+    {
+        _loopFile = loop;
+        try { if (IsAlive && _ipc != null) IpcSetProperty("loop-file", loop ? "inf" : "no"); }
+        catch (Exception ex) { DiagnosticsLog.Write("设置循环模式失败", ex); }
+    }
+
+    public void LoadMedia(string mediaPath, bool loopFile)
+    {
+        if (!IsAlive || _ipc == null) throw new InvalidOperationException("播放器尚未就绪。");
+        if (!File.Exists(mediaPath)) throw new FileNotFoundException("视频文件不存在。", mediaPath);
+        _mediaPath = mediaPath;
+        _loopFile = loopFile;
+        _ignoreEndFile = true;
+        try
+        {
+            ResetLoadSignals();
+            IpcSetProperty("loop-file", loopFile ? "inf" : "no");
+            var loadResult = IpcCommand(["loadfile", mediaPath, "replace"]);
+            if (loadResult.ValueKind != JsonValueKind.Object
+                || !loadResult.TryGetProperty("playlist_entry_id", out var entryNode)
+                || !entryNode.TryGetInt64(out var entryId))
+                throw new InvalidOperationException("mpv loadfile 没有返回 playlist_entry_id。" + ErrorTail());
+            SelectActivePlaylistEntry(entryId);
+            WaitForMpvSignal(_fileLoaded, "切换视频文件", TimeSpan.FromSeconds(15));
+            ApplyAspectModeOverIpc();
+            ApplyAudioState();
+            WaitForMpvSignal(_playbackRestart, "提交切换后的视频帧", TimeSpan.FromSeconds(15));
+            if (_paused) IpcSetProperty("pause", true);
+        }
+        finally { _ignoreEndFile = false; }
+    }
+
+    public bool Relocate(Rectangle bounds)
+    {
+        _targetBounds = bounds;
+        return !IsAlive || AttachToDesktop();
     }
 
     public void StopPlayback()
@@ -329,11 +433,12 @@ public sealed class NativeWallpaperPlayer : IDisposable
             "--idle=yes",
             "--force-window=immediate",
             "--keep-open=yes",
-            "--loop-file=inf",
+            "--image-display-duration=inf",
+            _loopFile ? "--loop-file=inf" : "--loop-file=no",
             "--pause=yes",
-            "--audio=no",
+            "--mute=yes",
+            "--volume=70",
             "--sub=no",
-            "--aid=no",
             "--sid=no",
             "--autoload-files=no",
             "--load-scripts=no",
@@ -396,16 +501,85 @@ public sealed class NativeWallpaperPlayer : IDisposable
         IpcSetProperty("video-pan-y", 0.0);
     }
 
+    private void ApplyAudioState()
+    {
+        IpcSetProperty("mute", _muted);
+        IpcSetProperty("volume", _volume);
+        IpcSetProperty("speed", _speed);
+        IpcSetProperty("loop-file", _loopFile ? "inf" : "no");
+    }
+
+    private void ResetLoadSignals()
+    {
+        _fileLoaded.Reset();
+        _playbackRestart.Reset();
+        _loadFailed.Reset();
+        lock (_eventGate)
+        {
+            _loadedEntries.Clear();
+            _restartedEntries.Clear();
+            _endedEntries.Clear();
+            _activePlaylistEntryId = -1;
+            _eventPlaylistEntryId = -1;
+            _loadFailureDetail = null;
+        }
+    }
+
+    private double ReadDoubleProperty(string name)
+    {
+        var value = _ipc!.GetPropertyAsync(name, TimeSpan.FromMilliseconds(400)).GetAwaiter().GetResult();
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) return number;
+        if (value.ValueKind == JsonValueKind.String
+            && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out number))
+            return number;
+        return 0;
+    }
+
+    private bool? ReadBoolProperty(string name)
+    {
+        var value = _ipc!.GetPropertyAsync(name, TimeSpan.FromMilliseconds(400)).GetAwaiter().GetResult();
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => null
+        };
+    }
+
     private JsonElement IpcCommand(object?[] command)
     {
         if (_ipc == null) throw new InvalidOperationException("mpv IPC 尚未连接。");
-        return _ipc.CommandAsync(command, IpcCommandTimeout).GetAwaiter().GetResult();
+        TimeoutException? last = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try { return _ipc.CommandAsync(command, IpcCommandTimeout).GetAwaiter().GetResult(); }
+            catch (TimeoutException ex) when (attempt < 2)
+            {
+                last = ex;
+                Thread.Sleep(200);
+            }
+        }
+        throw last ?? new TimeoutException("mpv IPC 命令超时。");
     }
 
     private void IpcSetProperty(string name, object? value)
     {
         if (_ipc == null) throw new InvalidOperationException("mpv IPC 尚未连接。");
-        _ipc.SetPropertyAsync(name, value, IpcCommandTimeout).GetAwaiter().GetResult();
+        TimeoutException? last = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                _ipc.SetPropertyAsync(name, value, IpcCommandTimeout).GetAwaiter().GetResult();
+                return;
+            }
+            catch (TimeoutException ex) when (attempt < 2)
+            {
+                last = ex;
+                Thread.Sleep(200);
+            }
+        }
+        throw last ?? new TimeoutException($"设置 mpv 属性 {name} 超时。");
     }
 
     private IntPtr WaitForPlayerWindow(TimeSpan timeout)
@@ -480,10 +654,10 @@ public sealed class NativeWallpaperPlayer : IDisposable
                 continue;
             }
             if (!TryGetClientSize(_handle, out var clientWidth, out var clientHeight)
-                || !ApproximatelyEquals(clientWidth, _screen.Bounds.Width)
-                || !ApproximatelyEquals(clientHeight, _screen.Bounds.Height))
+                || !ApproximatelyEquals(clientWidth, _targetBounds.Width)
+                || !ApproximatelyEquals(clientHeight, _targetBounds.Height))
             {
-                lastDetail = $"Client={clientWidth}x{clientHeight}, Expected={_screen.Bounds.Width}x{_screen.Bounds.Height}";
+                lastDetail = $"Client={clientWidth}x{clientHeight}, Expected={_targetBounds.Width}x{_targetBounds.Height}";
                 Thread.Sleep(40);
                 continue;
             }
@@ -508,10 +682,10 @@ public sealed class NativeWallpaperPlayer : IDisposable
                 var dimensions = _ipc.GetPropertyAsync("osd-dimensions", TimeSpan.FromMilliseconds(700))
                     .GetAwaiter().GetResult();
                 if (!TryReadOsdDimensions(dimensions, out var osdWidth, out var osdHeight)
-                    || !ApproximatelyEquals(osdWidth, _screen.Bounds.Width)
-                    || !ApproximatelyEquals(osdHeight, _screen.Bounds.Height))
+                    || !ApproximatelyEquals(osdWidth, _targetBounds.Width)
+                    || !ApproximatelyEquals(osdHeight, _targetBounds.Height))
                 {
-                    lastDetail = $"osd-dimensions={osdWidth}x{osdHeight}, Expected={_screen.Bounds.Width}x{_screen.Bounds.Height}";
+                    lastDetail = $"osd-dimensions={osdWidth}x{osdHeight}, Expected={_targetBounds.Width}x{_targetBounds.Height}";
                     Thread.Sleep(40);
                     continue;
                 }
@@ -528,7 +702,7 @@ public sealed class NativeWallpaperPlayer : IDisposable
         }
         throw new TimeoutException(
             $"mpv 渲染目标尺寸校验超时：{lastDetail}。Hwnd=0x{_handle.ToInt64():X}; "
-            + $"Display={_screen.DeviceName}; Bounds={_screen.Bounds}" + ErrorTail());
+            + $"Display={_screen.DeviceName}; Bounds={_targetBounds}" + ErrorTail());
     }
 
     private void EnsureTransparentWindowIsShown()
@@ -546,8 +720,8 @@ public sealed class NativeWallpaperPlayer : IDisposable
 
     private bool HasExpectedClientSize()
         => TryGetClientSize(_handle, out var width, out var height)
-            && ApproximatelyEquals(width, _screen.Bounds.Width)
-            && ApproximatelyEquals(height, _screen.Bounds.Height);
+            && ApproximatelyEquals(width, _targetBounds.Width)
+            && ApproximatelyEquals(height, _targetBounds.Height);
 
     private static bool TryGetClientSize(IntPtr hwnd, out int width, out int height)
     {
@@ -630,16 +804,22 @@ public sealed class NativeWallpaperPlayer : IDisposable
                     {
                         _endedEntries[endEntryId] = detail;
                         isActive = endEntryId == _activePlaylistEntryId;
-                        if (isActive)
+                        if (isActive && !_prepared && reason is not "redirect")
                         {
                             _loadFailureDetail = detail;
                             _loadFailed.Set();
                         }
                         if (_eventPlaylistEntryId == endEntryId) _eventPlaylistEntryId = -1;
                     }
-                    if (isActive && _armed && !_stopping)
-                        ReportPlaybackFailure(new InvalidOperationException(
-                            $"mpv 当前壁纸媒体已结束：{detail}。" + ErrorTail()));
+                    if (!isActive || !_armed || _stopping || _ignoreEndFile) break;
+                    if (reason is "eof" or "stop")
+                    {
+                        if (!_loopFile) MediaEnded?.Invoke(this, EventArgs.Empty);
+                        break;
+                    }
+                    if (reason is "quit" or "redirect") break;
+                    ReportPlaybackFailure(new InvalidOperationException(
+                        $"mpv 当前壁纸媒体已结束：{detail}。" + ErrorTail()));
                 }
                 break;
         }

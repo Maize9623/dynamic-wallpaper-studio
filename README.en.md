@@ -21,6 +21,8 @@
 
 Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provides one place to import, convert, favorite, assign and scale them. Media processing and the wallpaper library stay on your computer. No account or upload is required.
 
+The `feature/windows-1.1-moyushenqi` branch upgrades the Windows source to **1.1.0 “摸鱼神器” Preview**: a transport HUD, optional library path, TXT/PDF reader, isolated live/web sync, and a living-room TV camouflage. `main` is unchanged.
+
 ## Features
 
 - Drag-and-drop and batch import for MP4, MOV and M4V videos
@@ -32,12 +34,25 @@ Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provide
 - Import and export of shareable wallpaper packages
 - Menu bar controls on macOS; notification area controls and safe mode on Windows
 
+### Windows 1.1.0 (this branch)
+
+- Transport HUD: play/pause, previous/next, seek, volume, mute, speed (1 / 1.25 / 1.5 / 2); muted by default
+- Playlist plays in order and stops on the last item; turn playlist mode off to loop the current wallpaper
+- User-chosen library path; imports default to referencing the original file instead of copying to the C: drive
+- Local TXT / PDF reader with font size, light/dark theme, manual or auto page turns, and remembered position
+- Web/live: log in, enter page-fullscreen, and toggle danmaku in an independent window, then Sync to desktop; the wallpaper layer is not clickable
+- Live streams: HUD mute/volume apply to the page; Bilibili/Tencent-style VOD can also use play and speed
+- Isolated WebView2 profile under the library `WebProfile` folder; no system Edge cookies and no DRM circumvention
+- Living-room TV camouflage, freeze-on-TV-off, and a boss key (default Ctrl+Alt+B)
+- On Windows 11 Raised Desktop the living-room backdrop uses the same native layered path as video, so it is not just a floating rectangle
+
 ## Platform status
 
 | Platform | Source version | Stack | Status |
 |---|---:|---|---|
 | macOS | 2.0.0 | SwiftUI, AppKit, AVFoundation | macOS 15+; Apple Silicon and Intel |
-| Windows | 1.0.5 | .NET 10 WPF, mpv, FFmpeg | Windows 11 x64 recommended; Preview |
+| Windows (`main`) | 1.0.5 | .NET 10 WPF, mpv, FFmpeg | Windows 11 x64 recommended; Preview |
+| Windows (this branch) | 1.1.0 | .NET 10 WPF, mpv, FFmpeg, WebView2 | Windows 11 x64 recommended; 摸鱼神器 Preview |
 
 The two applications share a product goal, not a UI codebase. The Windows build remains a preview because Explorer updates, Raised Desktop, mixed DPI and unusual multi-monitor layouts can affect desktop embedding. Windows 10 is best-effort compatibility rather than a formally supported target.
 
@@ -49,7 +64,8 @@ Open the [latest release](https://github.com/Maize9623/dynamic-wallpaper-studio/
 |---|---|---|
 | macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | Open the DMG and drag the app to Applications |
 | macOS alternative | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | Extract and drag the app to Applications |
-| Windows | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | Extract everything, then run `DynamicWallpaperStudio.exe` |
+| Windows (official Release) | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | Extract everything, then run `DynamicWallpaperStudio.exe` |
+| Windows 1.1.0 | Build this branch from source | Follow “Build from source” below; this branch does not replace the 1.0.5 Release on `main` |
 
 The Windows portable package includes the security-patched .NET 10 runtime and needs no administrator access. To avoid directly redistributing static media-tool binaries without complete corresponding-source materials, the app asks for consent on first launch and downloads about 190 MB from fixed, documented distributors: mpv's official GitHub release and the gyan.dev build site listed by FFmpeg. It verifies SHA-256 before continuing. First-time setup needs internet access and 1–2 GB of temporary free space. Safe mode never downloads components.
 

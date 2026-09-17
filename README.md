@@ -21,6 +21,8 @@
 
 动态壁纸工作室可以把本地视频变成桌面背景，并集中完成导入、转换、收藏、多显示器分配和画面适配。视频处理与资料库都留在本机，不需要账号，也不会上传媒体文件。
 
+`feature/windows-1.1-moyushenqi` 分支上的 Windows 源码升级为 **1.1.0「摸鱼神器」Preview**：在原有动态壁纸之上增加连续播放条、可选资料库路径、TXT/PDF 阅读、独立网页直播同步，以及客厅电视伪装。`main` 分支保持原状，不受此分支影响。
+
 ## 功能
 
 - 拖拽或批量导入 MP4、MOV、M4V 视频
@@ -32,12 +34,25 @@
 - 导入和导出可分享的动态壁纸包
 - macOS 菜单栏控制；Windows 通知区域控制与安全模式
 
+### Windows 1.1.0（本分支）
+
+- 播放条：播放/暂停、上一首/下一首、进度、音量、静音、倍速（1 / 1.25 / 1.5 / 2）；默认静音
+- 列表按顺序播完即停；关闭列表后当前壁纸循环
+- 资料库路径可自选；导入默认只引用原文件，不强制拷到 C 盘
+- 本地 TXT / PDF 阅读：字号、浅色/深色、手动或自动翻页，并记住位置
+- 网页/直播：独立页面里登录、网页全屏、开关弹幕，再「同步到桌面」；桌面层不能点击
+- 直播时播放条同步静音/音量；B 站、腾讯等点播可再控制播放与倍速
+- 独立 WebView2 配置（资料库 `WebProfile`），不读取系统 Edge Cookie，不破解 DRM
+- 客厅电视伪装：客厅背景 + 电视框；关电视冻结进度；老板键（默认 Ctrl+Alt+B）立刻隐藏
+- Windows 11 Raised Desktop 下客厅背景走与视频相同的原生分层窗口，避免只剩一块浮动画面
+
 ## 平台状态
 
 | 平台 | 当前源码版本 | 技术栈 | 状态 |
 |---|---:|---|---|
 | macOS | 2.0.0 | SwiftUI、AppKit、AVFoundation | macOS 15+；Apple Silicon 与 Intel |
-| Windows | 1.0.5 | .NET 10 WPF、mpv、FFmpeg | Windows 11 x64 推荐；Preview |
+| Windows（`main`） | 1.0.5 | .NET 10 WPF、mpv、FFmpeg | Windows 11 x64 推荐；Preview |
+| Windows（本分支） | 1.1.0 | .NET 10 WPF、mpv、FFmpeg、WebView2 | Windows 11 x64 推荐；摸鱼神器 Preview |
 
 两个版本共享产品目标，但不是同一套 UI 代码。Windows 版仍标记为 Preview：Explorer 更新、Raised Desktop、混合 DPI 或特殊多屏排列可能影响桌面嵌入。Windows 10 仅尽力兼容，不再作为正式支持目标。
 
@@ -49,7 +64,8 @@
 |---|---|---|
 | macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序” |
 | macOS 备用 | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | 解压后把应用拖入“应用程序” |
-| Windows | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | 完整解压，运行 `DynamicWallpaperStudio.exe` |
+| Windows（官方 Release） | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | 完整解压，运行 `DynamicWallpaperStudio.exe` |
+| Windows 1.1.0 | 本分支源码构建 | 从本分支按下方「从源码开始」编译；尚未作为正式 Release 替换 `main` 的 1.0.5 安装包 |
 
 Windows 便携包已自带带安全更新的 .NET 10 运行环境，不需要管理员权限。为避免直接再分发许可材料不完整的静态媒体工具，应用首次启动时会征求同意，再从固定且公开记录的分发来源下载约 190 MB 运行组件：mpv 官方 GitHub Release，以及 FFmpeg 官网列出的 gyan.dev 构建站。应用会先校验 SHA-256，随后继续打开；首次准备需要联网并建议预留 1–2 GB 临时空间。安全模式不会联网。
 

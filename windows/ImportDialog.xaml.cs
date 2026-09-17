@@ -8,10 +8,11 @@ public partial class ImportDialog : Window
     private readonly VideoMetadata _metadata;
     public ImportOptions? Options { get; private set; }
 
-    public ImportDialog(VideoMetadata metadata, IReadOnlyList<DisplayInfo> displays)
+    public ImportDialog(VideoMetadata metadata, IReadOnlyList<DisplayInfo> displays, bool copyToLibrary = false)
     {
         InitializeComponent();
         _metadata = metadata;
+        CopyBox.IsChecked = copyToLibrary;
         SourceInfo.Text = $"{Path.GetFileName(metadata.Path)} · {metadata.ResolutionText} · {FormatDuration(metadata.Duration)} · {WallpaperItem.FormatBytes(metadata.FileSize)}";
         NameBox.Text = Path.GetFileNameWithoutExtension(metadata.Path);
         var choices = new List<DisplayChoice> { new("all", "所有显示器") };
@@ -61,6 +62,7 @@ public partial class ImportDialog : Window
             AspectMode = FillRadio.IsChecked == true ? AspectMode.Fill : AspectMode.Fit,
             Favorite = FavoriteBox.IsChecked == true,
             ApplyAfterImport = ApplyBox.IsChecked == true,
+            CopyToLibrary = CopyBox.IsChecked == true,
             TargetDisplayId = DisplayBox.SelectedValue?.ToString() ?? "all"
         };
         DialogResult = true;

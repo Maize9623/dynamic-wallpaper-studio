@@ -19,7 +19,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
-      PACKAGE_NAME: DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable
+      PACKAGE_NAME: DynamicWallpaperStudio-Windows-x64-1.1.0-OnlinePortable
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -56,8 +56,8 @@ jobs:
 
           $executablePath = Join-Path $publishDirectory "DynamicWallpaperStudio.exe"
           $depsPath = Join-Path $publishDirectory "DynamicWallpaperStudio.deps.json"
-          if ((Get-Item -LiteralPath $executablePath).VersionInfo.FileVersion -ne "1.0.5.0") {
-            throw "DynamicWallpaperStudio.exe does not have FileVersion 1.0.5.0."
+          if ((Get-Item -LiteralPath $executablePath).VersionInfo.FileVersion -ne "1.1.0.0") {
+            throw "DynamicWallpaperStudio.exe does not have FileVersion 1.1.0.0."
           }
           $deps = Get-Content -LiteralPath $depsPath -Raw
           if ($deps -notmatch 'Microsoft\.NETCore\.App\.Runtime\.win-x64/10\.0\.12' -or
@@ -144,7 +144,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      PACKAGE_NAME: DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable
+      PACKAGE_NAME: DynamicWallpaperStudio-Windows-x64-1.1.0-OnlinePortable
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
       - name: Download verified package

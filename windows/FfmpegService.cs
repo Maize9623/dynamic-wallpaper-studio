@@ -37,7 +37,22 @@ public sealed class FfmpegService
         var size = long.TryParse(format.TryGetProperty("size", out var sizeValue) ? sizeValue.GetString() : null, out var parsedSize)
             ? parsedSize : new FileInfo(path).Length;
         var fingerprint = await FingerprintAsync(path, cancellationToken);
-        return new VideoMetadata(path, width, height, duration, fps, codec, size, fingerprint);
+        var hasAudio = await HasAudioTrackAsync(path, cancellationToken);
+        return new VideoMetadata(path, width, height, duration, fps, codec, size, fingerprint, hasAudio);
+    }
+
+    public async Task<bool> HasAudioTrackAsync(string path, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var output = await RunCaptureAsync(FfprobePath,
+            [
+                "-v", "error", "-select_streams", "a:0",
+                "-show_entries", "stream=index,codec_name", "-of", "csv=p=0", path
+            ], cancellationToken);
+            return !string.IsNullOrWhiteSpace(output);
+        }
+        catch { return false; }
     }
 
     public async Task MakePosterAsync(string input, string output, CancellationToken cancellationToken = default)
@@ -70,9 +85,11 @@ public sealed class FfmpegService
             : $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps=30";
         var args = new List<string>
         {
-            "-hide_banner", "-y", "-i", input, "-map", "0:v:0", "-vf", filter,
+            "-hide_banner", "-y", "-i", input,
+            "-map", "0:v:0", "-map", "0:a:0?", "-vf", filter,
             "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
-            "-an", "-movflags", "+faststart", "-progress", "pipe:1", "-nostats", output
+            "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000",
+            "-movflags", "+faststart", "-progress", "pipe:1", "-nostats", output
         };
         await RunWithProgressAsync(args, duration, progress, cancellationToken);
     }
