@@ -136,3 +136,5 @@ windows/Samples/StarterPoster.jpg
 - 本地 TXT / PDF 阅读，记住字号、主题和位置。
 - 网页直播：独立页面登录并设好全屏/弹幕后「同步到桌面」。桌面层不能点击。直播同步静音，点播可再控制播放和倍速。独立 WebView2 配置，不破解 DRM。
 - 客厅电视伪装、关电视、老板键。客厅背景在 Windows 11 Raised Desktop 上使用与 mpv 相同的原生分层窗口。
+
+macOS 2.1.0 之后多出来的子库、短视频清屏、客厅两套方案等，对齐说明见 [WINDOWS_1.1_HANDOFF.md](WINDOWS_1.1_HANDOFF.md)。不要改 `main`。

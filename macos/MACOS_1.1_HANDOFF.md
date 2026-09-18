@@ -116,11 +116,12 @@ Windows 桌面嵌入、mpv IPC、WebView2、Win32 `Progman/WorkerW` **全部不�
 
 ### 5. 客厅伪装 + 老板键
 
-- 一张客厅图铺满桌面，内容只出现在电视黑框里。Windows 资源：`windows/Assets/LivingRoom.jpg`。
-- 电视框相对桌面的归一化矩形（已按该图测过内屏）：
+- 一张客厅图铺满桌面，内容只出现在电视黑框里。Windows 资源：`windows/Assets/LivingRoom.jpg`。macOS 另有右下角方案 `LivingRoomCorner.jpg`。
+- 电视框相对桌面的归一化矩形（已按图测过内屏）：
 
 ```text
-x = 0.3078, y = 0.2056, w = 0.3859, h = 0.3847
+居中：x = 0.3078, y = 0.2056, w = 0.3859, h = 0.3847
+右下角：x = 0.5055, y = 0.3125, w = 0.3445, h = 0.3528
 ```
 
 先抄这组，再按实机微调。图和框对不齐时优先改框，不要把视频缩在屏幕正中间却没有客厅。
@@ -180,3 +181,5 @@ x = 0.3078, y = 0.2056, w = 0.3859, h = 0.3847
 - [ ] 真机验收（客厅/书/网页/关电视已过；直播音量、点播倍速、删引用视频、DRM、多屏未逐项收尾）
 - [x] 文档
 - [x] 已推 `feature/macos-1.1-moyushenqi`（未合并 `main`）
+- [x] macOS 2.1.0 Preview DMG 预发布：https://github.com/Maize9623/dynamic-wallpaper-studio/releases/tag/macos-2.1.0-moyushenqi
+- Windows 对齐增量见 [windows/WINDOWS_1.1_HANDOFF.md](../windows/WINDOWS_1.1_HANDOFF.md)

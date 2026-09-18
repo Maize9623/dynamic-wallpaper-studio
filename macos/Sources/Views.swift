@@ -377,7 +377,7 @@ struct LibraryView: View {
     @EnvironmentObject private var model: AppModel
 
     private let columns = [
-        GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 18)
+        GridItem(.adaptive(minimum: 220, maximum: 320), spacing: 18, alignment: .top)
     ]
 
     var body: some View {
@@ -424,41 +424,31 @@ struct WallpaperCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .topLeading) {
-                PosterImage(url: model.store.posterURL(for: item))
-                    .aspectRatio(16 / 10, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-
-                if model.isActive(item) {
-                    Label("使用中", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .foregroundStyle(.white)
-                        .background(Color.green.opacity(0.92), in: Capsule())
-                        .padding(10)
-                }
-
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button {
-                            model.toggleFavorite(item)
-                        } label: {
-                            Image(systemName: item.isFavorite ? "heart.fill" : "heart")
-                                .foregroundStyle(item.isFavorite ? Color.pink : Color.white)
-                                .padding(8)
-                                .background(.black.opacity(0.42), in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .help(item.isFavorite ? "移出收藏" : "加入收藏")
+            FittedPoster(url: model.store.posterURL(for: item), aspectRatio: item.previewAspectRatio)
+                .overlay(alignment: .topLeading) {
+                    if model.isActive(item) {
+                        Label("使用中", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .foregroundStyle(.white)
+                            .background(Color.green.opacity(0.92), in: Capsule())
+                            .padding(10)
                     }
-                    Spacer()
                 }
-                .padding(8)
-            }
-            .background(Color.black)
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        model.toggleFavorite(item)
+                    } label: {
+                        Image(systemName: item.isFavorite ? "heart.fill" : "heart")
+                            .foregroundStyle(item.isFavorite ? Color.pink : Color.white)
+                            .padding(8)
+                            .background(.black.opacity(0.42), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(item.isFavorite ? "移出收藏" : "加入收藏")
+                    .padding(8)
+                }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.name)
@@ -481,6 +471,7 @@ struct WallpaperCard: View {
                 .stroke(selected ? Color.accentColor : Color.secondary.opacity(hovering ? 0.32 : 0.16), lineWidth: selected ? 2 : 1)
         }
         .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
         .onHover { hovering = $0 }
         .onTapGesture(count: 2) {
             model.setWallpaper(item, targetDisplayID: displayIDFromFilter)
@@ -526,6 +517,21 @@ struct WallpaperCard: View {
     }
 }
 
+struct FittedPoster: View {
+    let url: URL?
+    let aspectRatio: CGFloat
+
+    var body: some View {
+        Color.black
+            .frame(maxWidth: .infinity)
+            .aspectRatio(max(aspectRatio, 0.01), contentMode: .fit)
+            .overlay {
+                PosterImage(url: url)
+            }
+            .clipped()
+    }
+}
+
 struct PosterImage: View {
     let url: URL?
 
@@ -535,6 +541,7 @@ struct PosterImage: View {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFill()
+                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
             } else {
                 ZStack {
                     LinearGradient(
@@ -561,8 +568,7 @@ struct WallpaperInspector: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PosterImage(url: model.store.posterURL(for: item))
-                    .aspectRatio(16 / 10, contentMode: .fit)
+                FittedPoster(url: model.store.posterURL(for: item), aspectRatio: item.previewAspectRatio)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 TextField("名称", text: $editedName)
@@ -810,7 +816,8 @@ struct ImportSheet: View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 14) {
                 VideoStillPreview(url: candidate.url)
-                    .frame(width: 250, height: 310)
+                    .aspectRatio(candidate.metadata.previewAspectRatio, contentMode: .fit)
+                    .frame(width: 250)
                     .background(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 Text(candidate.url.lastPathComponent)

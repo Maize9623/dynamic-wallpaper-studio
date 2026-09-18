@@ -74,6 +74,9 @@ install -m 0644 "$PROJECT_DIR/THIRD_PARTY_NOTICES.md" "$STAGED_APP/Contents/Reso
 if [[ -f "$RESOURCES_DIR/LivingRoom.jpg" ]]; then
     install -m 0644 "$RESOURCES_DIR/LivingRoom.jpg" "$STAGED_APP/Contents/Resources/LivingRoom.jpg"
 fi
+if [[ -f "$RESOURCES_DIR/LivingRoomCorner.jpg" ]]; then
+    install -m 0644 "$RESOURCES_DIR/LivingRoomCorner.jpg" "$STAGED_APP/Contents/Resources/LivingRoomCorner.jpg"
+fi
 
 starter_wallpaper="${STARTER_WALLPAPER:-}"
 if [[ -z "$starter_wallpaper" && -f "$RESOURCES_DIR/StarterWallpaper.mp4" ]]; then

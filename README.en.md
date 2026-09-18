@@ -46,7 +46,8 @@ The `feature/macos-1.1-moyushenqi` branch upgrades the macOS source to **2.1.0 P
 - Web pages in the living-room TV are lifted slightly so Douyin top bars and bottom captions fit the screen
 - Live streams: HUD mute/volume apply to the page; Bilibili/Tencent-style VOD can also use play and speed
 - Isolated web profile under the library `WebProfile` folder (WebView2 on Windows, `WKWebsiteDataStore` on macOS); no system browser cookies and no DRM circumvention
-- Living-room TV camouflage, freeze-on-TV-off, and a boss key (Windows Ctrl+Alt+B, macOS Control+Option+B)
+- Living-room TV camouflage (macOS can pick a centered TV or a lower-right scene with a person on the left), freeze-on-TV-off, and a boss key (Windows Ctrl+Alt+B, macOS Control+Option+B)
+- Library cards follow each video’s orientation: landscape stays landscape, portrait stays portrait
 - On Windows 11 Raised Desktop the living-room backdrop uses the same native layered path as video, so it is not just a floating rectangle
 - macOS uses the existing desktop `NSWindow` plus `AVQueuePlayer` / PDFKit / `WKWebView`; it does not port Win32, mpv IPC, or WebView2. Bundle id stays `local.baiyaoyu.dynamicwallpaperstudio` so older copied library items remain visible
 
@@ -68,7 +69,7 @@ Open the [latest release](https://github.com/Maize9623/dynamic-wallpaper-studio/
 | Platform | File | How to use it |
 |---|---|---|
 | macOS (official Release) | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | Open the DMG and drag the app to Applications |
-| macOS 2.1.0 | Build this branch from source | Follow “Build from source” below; this branch does not replace the 2.0.0 Release on `main` |
+| macOS 2.1.0 Preview (摸鱼神器) | [Prerelease `macos-2.1.0-moyushenqi`](https://github.com/Maize9623/dynamic-wallpaper-studio/releases/tag/macos-2.1.0-moyushenqi) `DynamicWallpaperStudio-macOS-2.1.0-Universal.dmg` | Open the DMG and drag the app to Applications. This is a prerelease and **does not replace** the 2.0.0 Latest on `main` |
 | macOS alternative | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | Extract and drag the app to Applications |
 | Windows (official Release) | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | Extract everything, then run `DynamicWallpaperStudio.exe` |
 | Windows 1.1.0 | Build this branch from source | Follow “Build from source” below; this branch does not replace the 1.0.5 Release on `main` |

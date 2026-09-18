@@ -413,7 +413,7 @@ struct ScenePanel: View {
 
     var body: some View {
         studioCard(title: "客厅电视伪装", symbol: "tv") {
-            Text("勾选后点「应用」才会切换客厅样板。视频、电子书或网页只出现在电视屏幕里。关电视会停声、停画面并冻结进度，背景留下。")
+            Text("勾选后点「应用」才会切换客厅样板。视频、电子书或网页只出现在电视屏幕里。居中适合专心看；右下角把中间桌面留给办公。关电视会停声、停画面并冻结进度，背景留下。")
                 .foregroundStyle(.secondary)
             HStack {
                 Toggle("启用客厅伪装", isOn: $model.pendingSceneEnabled)
@@ -422,19 +422,40 @@ struct ScenePanel: View {
                     .buttonStyle(.borderedProminent)
             }
             .zIndex(1)
-            if let image = DesktopLayer.livingRoomImage() {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.black.opacity(0.04))
-                    .frame(height: 150)
-                    .overlay {
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFill()
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(SceneScheme.allCases) { scheme in
+                    Button {
+                        model.pendingSceneScheme = scheme
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let image = DesktopLayer.livingRoomImage(scheme) {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 92)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            Text(scheme.title)
+                                .font(.headline)
+                            Text(scheme.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(
+                                    model.pendingSceneScheme == scheme ? Color.accentColor : Color.secondary.opacity(0.18),
+                                    lineWidth: model.pendingSceneScheme == scheme ? 2 : 1
+                                )
+                        }
                     }
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .allowsHitTesting(false)
+                    .buttonStyle(.plain)
+                }
             }
             Toggle("关电视（冻结进度，只留背景或桌面）", isOn: Binding(
                 get: { model.state.settings.televisionOff },

@@ -41,7 +41,7 @@ file "macos/dist/动态壁纸工作室.app/Contents/MacOS/DynamicWallpaperStudio
 ./macos/scripts/package.sh
 ```
 
-打包脚本会重新构建应用，检查 `arm64`/`x86_64` 架构与签名，解压或挂载成品复验，并默认排除本地示例视频。它会拒绝覆盖已有产物。当前正式 GitHub Release 仍可能是 2.0.0；本分支以源码构建为准。
+打包脚本会重新构建应用，检查 `arm64`/`x86_64` 架构与签名，解压或挂载成品复验，并默认排除本地示例视频。它会拒绝覆盖已有产物。`main` 上的正式 Latest 仍是 2.0.0；本分支 2.1.0 Preview 以预发布 [macos-2.1.0-moyushenqi](https://github.com/Maize9623/dynamic-wallpaper-studio/releases/tag/macos-2.1.0-moyushenqi) 为准。
 
 ## 1.1 摸鱼神器
 
@@ -54,8 +54,10 @@ file "macos/dist/动态壁纸工作室.app/Contents/MacOS/DynamicWallpaperStudio
 - 短视频模式：复用电子书上一条 / 下一条 / 暂停快捷键刷抖音。勾选「保持清屏」后，换条和同步到桌面都会再清一次点赞收藏
 - 客厅电视里的网页默认上移约 7% 电视高度，避开抖音顶部黑边，露出底部字幕
 - 直播只保证静音 / 音量；点播再开放播放与倍速。独立 `WKWebsiteDataStore`，不读系统浏览器 Cookie，不破解 DRM
-- 客厅电视伪装、关电视冻结进度、老板键（默认 Control+Option+B）
+- 客厅电视伪装可选「居中电视」或「右下角电视」（左边坐人、右侧大屏），关电视冻结进度、老板键（默认 Control+Option+B）
+- 资料库、详情和导入预览按视频方向显示，横版不再被拉成竖卡大黑框
 - 兼容标识 `local.baiyaoyu.dynamicwallpaperstudio`，旧资料库里已经拷过的条目不会丢
+- 预发布安装包：https://github.com/Maize9623/dynamic-wallpaper-studio/releases/tag/macos-2.1.0-moyushenqi （不替换 `main` 上的 2.0.0 Latest）
 
 ## 可选的内置示例壁纸
 
@@ -97,4 +99,4 @@ STARTER_WALLPAPER="/绝对路径/示例.mp4" ./macos/scripts/build.sh
 - 客厅 + 内容默认跟主屏。
 - 抖音自带清屏只对当前一条有效，请勾选「保持清屏」。客厅电视里的网页会略微上移。
 
-项目整体的许可证、隐私说明与贡献方式请参阅仓库根目录文档。移植说明见 [MACOS_1.1_HANDOFF.md](MACOS_1.1_HANDOFF.md)。
+项目整体的许可证、隐私说明与贡献方式请参阅仓库根目录文档。macOS 初版移植说明见 [MACOS_1.1_HANDOFF.md](MACOS_1.1_HANDOFF.md)。Windows 对齐本分支增量见 [../windows/WINDOWS_1.1_HANDOFF.md](../windows/WINDOWS_1.1_HANDOFF.md)。

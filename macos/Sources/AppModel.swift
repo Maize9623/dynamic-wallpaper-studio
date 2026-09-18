@@ -31,6 +31,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var loginAtLaunchEnabled = LaunchAtLoginController.isEnabled
     @Published private(set) var storageBytes: Int64 = 0
     @Published var pendingSceneEnabled = false
+    @Published var pendingSceneScheme: SceneScheme = .center
     @Published var draftBossHotkey = "Control+Option+B"
     @Published var draftReaderPreviousHotkey = "Control+Option+Left"
     @Published var draftReaderNextHotkey = "Control+Option+Right"
@@ -191,6 +192,7 @@ final class AppModel: ObservableObject {
             state = try store.load()
             displays = WallpaperEngine.displays()
             pendingSceneEnabled = state.settings.sceneEnabled
+            pendingSceneScheme = state.settings.sceneScheme
             draftBossHotkey = state.settings.bossHotkey
             syncReaderHotkeyDrafts()
             if state.wallpapers.isEmpty {
@@ -1558,6 +1560,7 @@ final class AppModel: ObservableObject {
 
     func applyScene() {
         state.settings.sceneEnabled = pendingSceneEnabled
+        state.settings.sceneScheme = pendingSceneScheme
         try? persist()
         if state.settings.wallpaperEnabled {
             engine.apply(state: state, store: store)
@@ -1656,6 +1659,7 @@ final class AppModel: ObservableObject {
             state = try store.load()
             state.settings.libraryRoot = store.baseURL.path
             pendingSceneEnabled = state.settings.sceneEnabled
+            pendingSceneScheme = state.settings.sceneScheme
             draftBossHotkey = state.settings.bossHotkey
             syncReaderHotkeyDrafts()
             sanitizePlaylist()

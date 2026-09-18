@@ -163,6 +163,7 @@ final class DesktopLayer {
     var onEnded: (() -> Void)?
     private(set) var wallpaperID: UUID?
     private var sceneEnabled = false
+    private var sceneScheme: SceneScheme = .center
 
     init(screen: NSScreen) {
         player.actionAtItemEnd = .none
@@ -173,7 +174,7 @@ final class DesktopLayer {
         root.layer?.backgroundColor = NSColor.black.cgColor
 
         sceneView.imageScaling = .scaleAxesIndependently
-        sceneView.image = Self.livingRoomImage()
+        sceneView.image = Self.livingRoomImage(.center)
         sceneView.wantsLayer = true
 
         wallpaperView.playerLayer.player = player
@@ -204,17 +205,19 @@ final class DesktopLayer {
         window.canHide = false
         window.isReleasedWhenClosed = false
         window.orderFrontRegardless()
-        layout(scene: false, screen: screen)
+        layout(scene: false, scheme: .center, screen: screen)
     }
 
-    func layout(scene: Bool, screen: NSScreen) {
+    func layout(scene: Bool, scheme: SceneScheme, screen: NSScreen) {
         sceneEnabled = scene
+        sceneScheme = scheme
+        sceneView.image = Self.livingRoomImage(scheme)
         window.setFrame(screen.frame, display: true)
         root.frame = NSRect(origin: .zero, size: screen.frame.size)
         sceneView.frame = root.bounds
         sceneView.isHidden = !scene
         if scene {
-            contentHost.frame = SceneLayout.televisionFrame(in: root.bounds)
+            contentHost.frame = SceneLayout.televisionFrame(scheme: scheme, in: root.bounds)
         } else {
             contentHost.frame = root.bounds
         }
@@ -331,9 +334,12 @@ final class DesktopLayer {
         }
     }
 
-    static func livingRoomImage() -> NSImage? {
-        if let url = Bundle.main.url(forResource: "LivingRoom", withExtension: "jpg") {
+    static func livingRoomImage(_ scheme: SceneScheme = .center) -> NSImage? {
+        if let url = Bundle.main.url(forResource: scheme.resourceName, withExtension: "jpg") {
             return NSImage(contentsOf: url)
+        }
+        if scheme != .center {
+            return livingRoomImage(.center)
         }
         return nil
     }
@@ -378,7 +384,7 @@ final class WallpaperEngine {
 
         let scene = state.settings.sceneEnabled
         let mode = state.settings.contentMode
-        ensureLayer(on: mainScreen, scene: scene)
+        ensureLayer(on: mainScreen, scene: scene, scheme: state.settings.sceneScheme)
 
         if keepSceneOnly {
             closeVideos()
@@ -546,13 +552,13 @@ final class WallpaperEngine {
         )
     }
 
-    private func ensureLayer(on screen: NSScreen, scene: Bool) {
+    private func ensureLayer(on screen: NSScreen, scene: Bool, scheme: SceneScheme) {
         if layer == nil {
             let created = DesktopLayer(screen: screen)
             created.onEnded = { [weak self] in self?.onMediaEnded?() }
             layer = created
         }
-        layer?.layout(scene: scene, screen: screen)
+        layer?.layout(scene: scene, scheme: scheme, screen: screen)
         layer?.reveal()
     }
 

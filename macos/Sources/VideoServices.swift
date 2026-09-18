@@ -138,7 +138,7 @@ enum VideoTranscoder {
         let asset = AVURLAsset(url: inputURL)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 960, height: 640)
+        generator.maximumSize = CGSize(width: 1280, height: 1280)
         generator.requestedTimeToleranceBefore = CMTime(seconds: 0.5, preferredTimescale: 600)
         generator.requestedTimeToleranceAfter = CMTime(seconds: 1, preferredTimescale: 600)
         var actual = CMTime.zero

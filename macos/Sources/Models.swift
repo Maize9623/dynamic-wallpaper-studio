@@ -30,6 +30,43 @@ enum ContentMode: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum SceneScheme: String, Codable, CaseIterable, Identifiable {
+    case center
+    case corner
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .center: return "居中电视"
+        case .corner: return "右下角电视"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .center: return "电视在墙正中，适合专心看"
+        case .corner: return "左边有人看电视，右侧大屏留空办公"
+        }
+    }
+
+    var resourceName: String {
+        switch self {
+        case .center: return "LivingRoom"
+        case .corner: return "LivingRoomCorner"
+        }
+    }
+
+    var televisionNormalized: CGRect {
+        switch self {
+        case .center:
+            return CGRect(x: 0.3078, y: 0.2056, width: 0.3859, height: 0.3847)
+        case .corner:
+            return CGRect(x: 0.5055, y: 0.3125, width: 0.3445, height: 0.3528)
+        }
+    }
+}
+
 enum ImportStorageMode: String, Codable, CaseIterable, Identifiable {
     case reference
     case copyToLibrary
@@ -108,6 +145,12 @@ struct WallpaperItem: Codable, Identifiable, Hashable {
         let divisor = Self.greatestCommonDivisor(outputWidth, outputHeight)
         return "\(outputWidth / divisor):\(outputHeight / divisor)"
     }
+
+    var previewAspectRatio: CGFloat {
+        MediaAspect.ratio(width: outputWidth, height: outputHeight)
+    }
+
+    var isPortrait: Bool { outputHeight > outputWidth }
 
     static func formatDuration(_ duration: Double) -> String {
         let seconds = max(0, Int(duration.rounded()))
@@ -339,6 +382,7 @@ struct StudioSettings: Codable, Hashable {
     var wallpaperEnabled = true
     var contentMode: ContentMode = .video
     var sceneEnabled = false
+    var sceneScheme: SceneScheme = .center
     var televisionOff = false
     var bossHidden = false
     var playlistMode = false
@@ -370,6 +414,7 @@ struct StudioSettings: Codable, Hashable {
         wallpaperEnabled = try container.decodeIfPresent(Bool.self, forKey: .wallpaperEnabled) ?? true
         contentMode = try container.decodeIfPresent(ContentMode.self, forKey: .contentMode) ?? .video
         sceneEnabled = try container.decodeIfPresent(Bool.self, forKey: .sceneEnabled) ?? false
+        sceneScheme = try container.decodeIfPresent(SceneScheme.self, forKey: .sceneScheme) ?? .center
         televisionOff = try container.decodeIfPresent(Bool.self, forKey: .televisionOff) ?? false
         bossHidden = try container.decodeIfPresent(Bool.self, forKey: .bossHidden) ?? false
         playlistMode = try container.decodeIfPresent(Bool.self, forKey: .playlistMode) ?? false
@@ -484,6 +529,17 @@ struct VideoMetadata: Hashable {
 
     var resolutionText: String { "\(width) × \(height)" }
     var isPortrait: Bool { height >= width }
+    var previewAspectRatio: CGFloat {
+        MediaAspect.ratio(width: width, height: height)
+    }
+}
+
+enum MediaAspect {
+    static func ratio(width: Int, height: Int) -> CGFloat {
+        let w = CGFloat(max(width, 1))
+        let h = CGFloat(max(height, 1))
+        return min(max(w / h, 9.0 / 21.0), 21.0 / 9.0)
+    }
 }
 
 struct ImportCandidate: Identifiable, Hashable {

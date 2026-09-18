@@ -46,7 +46,8 @@
 - 客厅电视里的网页会略微上移，减少抖音顶部黑边，并露出底部字幕
 - 直播时播放条同步静音/音量；B 站、腾讯等点播可再控制播放与倍速
 - 独立网页配置（资料库 `WebProfile`：Windows 用 WebView2，macOS 用 `WKWebsiteDataStore`），不读取系统浏览器 Cookie，不破解 DRM
-- 客厅电视伪装：客厅背景 + 电视框；关电视冻结进度；老板键立刻隐藏（Windows 默认 Ctrl+Alt+B，macOS 默认 Control+Option+B）
+- 客厅电视伪装：客厅背景 + 电视框，macOS 可选居中或右下角（左边坐人、右侧大屏）方案；关电视冻结进度；老板键立刻隐藏（Windows 默认 Ctrl+Alt+B，macOS 默认 Control+Option+B）
+- 资料库预览按视频方向排：横的横着显示，竖的竖着显示，不再强行竖卡留大黑框
 - Windows 11 Raised Desktop 下客厅背景走与视频相同的原生分层窗口，避免只剩一块浮动画面
 - macOS 用已有桌面 `NSWindow` + `AVQueuePlayer` / PDFKit / `WKWebView`，不搬 Win32、mpv IPC 或 WebView2。兼容标识 `local.baiyaoyu.dynamicwallpaperstudio`，旧资料库里已经拷过的条目不会丢
 
@@ -68,7 +69,7 @@
 | 平台 | 下载文件 | 使用方式 |
 |---|---|---|
 | macOS（官方 Release） | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序” |
-| macOS 2.1.0 | 本分支源码构建 | 从本分支按下方「从源码开始」编译；尚未作为正式 Release 替换 `main` 的 2.0.0 安装包 |
+| macOS 2.1.0 Preview（摸鱼神器） | [预发布 `macos-2.1.0-moyushenqi`](https://github.com/Maize9623/dynamic-wallpaper-studio/releases/tag/macos-2.1.0-moyushenqi) 的 `DynamicWallpaperStudio-macOS-2.1.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序”。这是预发布，**不替换** `main` 上 Latest 的 2.0.0 |
 | macOS 备用 | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | 解压后把应用拖入“应用程序” |
 | Windows（官方 Release） | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | 完整解压，运行 `DynamicWallpaperStudio.exe` |
 | Windows 1.1.0 | 本分支源码构建 | 从本分支按下方「从源码开始」编译；尚未作为正式 Release 替换 `main` 的 1.0.5 安装包 |
@@ -103,7 +104,7 @@ Set-Location dynamic-wallpaper-studio
 ./windows/scripts/build.ps1 -CreateZip
 ```
 
-默认公开构建不内置 FFmpeg 或 mpv，用户首次运行时再确认下载。仅制作内部测试包时可显式使用 `./windows/scripts/build.ps1 -IncludeThirdPartyTools`；该模式会从记录的上游地址下载固定版本并校验 SHA-256，不应直接用于公开 Release。详细说明见 [Windows 构建文档](windows/README.md)。
+默认公开构建不内置 FFmpeg 或 mpv，用户首次运行时再确认下载。仅制作内部测试包时可显式使用 `./windows/scripts/build.ps1 -IncludeThirdPartyTools`；该模式会从记录的上游地址下载固定版本并校验 SHA-256，不应直接用于公开 Release。详细说明见 [Windows 构建文档](windows/README.md)。要对齐 macOS 2.1 多出来的功能，请看 [Windows 交接稿](windows/WINDOWS_1.1_HANDOFF.md)。
 
 ## 壁纸包
 
