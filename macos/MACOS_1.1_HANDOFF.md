@@ -57,7 +57,7 @@ Windows 桌面嵌入、mpv IPC、WebView2、Win32 `Progman/WorkerW` **全部不�
 | 客厅 JPEG 分层窗 | 同一桌面 `NSWindow` 上的 `NSImageView` 背景；电视洞里放视频 / PDF / WKWebView |
 | WebView2 + `WebProfile` | `WKWebView` + 独立 `WKWebsiteDataStore`（资料库下 `WebProfile/`，非 `.default()`） |
 | 独立页面再同步 | 普通 `NSWindow` 里同一套 `WKWebView`（或同步 URL + 同 store）；点「同步到桌面」再挂到桌面层且 `ignoresMouseEvents = true` |
-| TXT / PDF | `NSTextView` + 编码探测（UTF-8 / GB18030）；PDF 用 **PDFKit** |
+| TXT / MD / PDF | `NSTextView` + 编码探测（UTF-8 / GB18030）；MD 转可读文本；PDF 用 **PDFKit**；TXT/MD 可自动滚动 |
 | 老板键 | 可配置的全局热键（默认 Control+Option+B，对标 Windows 的 Ctrl+Alt+B）；可关闭 |
 | 资料库改路径 | 允许自选目录；默认仍可留在 Application Support。导入默认 **引用原文件**，不要再强制 copy 进资料库 |
 
@@ -86,10 +86,12 @@ Windows 桌面嵌入、mpv IPC、WebView2、Win32 `Progman/WorkerW` **全部不�
 
 ### 3. 电子书
 
-- 仅本地 TXT、PDF
+- 仅本地 TXT、Markdown、PDF
 - TXT：UTF-8 / GB18030（或 CFString 编码探测），不要假设全是 UTF-8
-- 字号、浅色 / 深色、上一页 / 下一页、可选自动翻页（默认约 8 秒，可暂停）
-- 位置写入资料库：`pageIndex`、`scrollOffset`、`fontSize`、`theme`、`autoTurn`、`autoTurnSeconds`
+- 字号、浅色 / 深色、上一页 / 下一页
+- TXT/MD 可选自动翻页或自动滚动；滚动速度 8–80 点/秒；两种自动阅读都可暂停
+- 全局快捷键可设：上一页 / 下一页 / 暂停（默认 Control+Option+Left / Right / Space）
+- 位置写入资料库：`pageIndex`、`scrollOffset`、`fontSize`、`theme`、`advanceMode`、`scrollSpeed`、`autoAdvancePaused`
 - 不做 EPUB、在线书城、DRM 书
 
 ### 4. 网页 / 直播
@@ -105,6 +107,9 @@ Windows 桌面嵌入、mpv IPC、WebView2、Win32 `Progman/WorkerW` **全部不�
 
 - **直播**（URL 含 `live.`、`/live`、`/room/`，或 `video.duration` 为 Infinity）：只保证**静音和音量**作用到页面里的 `video/audio`；播放、进度、倍速、上一首/下一首关掉。
 - **点播**（B 站稿件、腾讯视频等能拿到有限时长的媒体）：再启用播放 / 暂停、倍速；进度能拖再用。
+- **短视频模式**（可选）：勾选后，电子书上一页 / 下一页快捷键在网页模式下刷上一条 / 下一条（抖音等）。直播不要开。
+- **保持清屏**：抖音自带清屏只对当前一条有效；勾选后换条、同步到桌面、窗口缩放都会再清一次。
+- 客厅电视里的网页默认上移约 7% 电视高度（`SceneLayout.televisionWebLift`），裁掉顶部黑边、露出底部字幕。视频和电子书仍铺满电视框。
 - 用页面里的媒体元素控制即可，不要写破解脚本。站点重建 `<video>` 时要能再次套上静音（Windows 用了 MutationObserver，Mac 可用同样思路的 `WKUserScript`，仍然只动 mute/volume/play/rate/seek）。
 
 配置目录：`{LibraryRoot}/WebProfile`。不读系统浏览器 Cookie。
@@ -145,15 +150,15 @@ x = 0.3078, y = 0.2056, w = 0.3859, h = 0.3847
 
 在目标 Mac 上用真实桌面走一遍，不要只编译通过：
 
-- [ ] 视频：播放条、静音默认、倍速、列表最后一条停止
+- [x] 视频：播放条、静音默认、倍速、列表最后一条停止
 - [ ] 引用导入的原视频：删库记录后原文件还在
-- [ ] TXT（含非 UTF-8）、PDF：翻页、换字号、重启后位置还在
-- [ ] 独立页登录某直播间 → 网页全屏/关弹幕 → 同步到桌面：桌面能看见，点桌面点不到播放器
+- [x] TXT（含非 UTF-8）、PDF：翻页、换字号、重启后位置还在
+- [x] 独立页登录某直播间 → 网页全屏/关弹幕 → 同步到桌面：桌面能看见，点桌面点不到播放器
 - [ ] 直播：管理窗静音/音量有效；播放/进度是灰的
 - [ ] 点播页：播放和倍速可用
-- [ ] 客厅应用后：整桌是客厅，视频/书/网页在电视里，不是系统壁纸上漂一块
-- [ ] 关电视：客厅在、内容停；再开进度还在
-- [ ] 老板键：立刻藏；再按恢复；桌面图标仍可点
+- [x] 客厅应用后：整桌是客厅，视频/书/网页在电视里，不是系统壁纸上漂一块
+- [x] 关电视：客厅在、内容停；再开进度还在
+- [x] 老板键：立刻藏；再按恢复；桌面图标仍可点
 - [ ] DRM 失败页就停在站点提示，不要假成功
 - [ ] 多屏：客厅+内容默认跟主屏；不要挡菜单栏点不到的程度超出桌面层常规行为
 
@@ -167,11 +172,11 @@ x = 0.3078, y = 0.2056, w = 0.3859, h = 0.3847
 
 ## 完成情况
 
-- [ ] 播放条 / 列表
-- [ ] 资料库路径与引用导入
-- [ ] TXT / PDF
-- [ ] 独立页 + 同步桌面 + 静音
-- [ ] 客厅 / 关电视 / 老板键
-- [ ] 真机验收
-- [ ] 文档
-- [ ] 已推 `feature/macos-1.1-moyushenqi`（未合并 `main`）
+- [x] 播放条 / 列表
+- [x] 资料库路径与引用导入
+- [x] TXT / Markdown / PDF
+- [x] 独立页 + 同步桌面 + 静音
+- [x] 客厅 / 关电视 / 老板键
+- [ ] 真机验收（客厅/书/网页/关电视已过；直播音量、点播倍速、删引用视频、DRM、多屏未逐项收尾）
+- [x] 文档
+- [x] 已推 `feature/macos-1.1-moyushenqi`（未合并 `main`）

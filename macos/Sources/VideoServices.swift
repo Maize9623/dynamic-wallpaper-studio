@@ -41,6 +41,32 @@ enum VideoServiceError: LocalizedError {
 enum VideoAnalyzer {
     static let supportedExtensions: Set<String> = ["mp4", "mov", "m4v"]
 
+    static func isSupported(_ url: URL) -> Bool {
+        supportedExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    static func collectVideos(in root: URL) -> [URL] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory) else { return [] }
+        if !isDirectory.boolValue {
+            return isSupported(root) ? [root] : []
+        }
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .isHiddenKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return [] }
+        var videos: [URL] = []
+        for case let file as URL in enumerator {
+            guard isSupported(file) else { continue }
+            videos.append(file)
+        }
+        return videos.sorted {
+            $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
+        }
+    }
+
     static func validateSupportedURL(_ url: URL) throws {
         if url.pathExtension.lowercased() == "dwallpaper" { return }
         guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
@@ -70,6 +96,7 @@ enum VideoAnalyzer {
         } ?? "未知"
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         let sha = try sha256(url: url)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
 
         return VideoMetadata(
             width: Int(oriented.width.rounded()),
@@ -78,7 +105,8 @@ enum VideoAnalyzer {
             fps: fps,
             codec: codec,
             fileSize: Int64(values.fileSize ?? 0),
-            sha256: sha
+            sha256: sha,
+            hasAudio: !audioTracks.isEmpty
         )
     }
 

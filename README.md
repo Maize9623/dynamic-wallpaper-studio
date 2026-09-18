@@ -21,7 +21,7 @@
 
 动态壁纸工作室可以把本地视频变成桌面背景，并集中完成导入、转换、收藏、多显示器分配和画面适配。视频处理与资料库都留在本机，不需要账号，也不会上传媒体文件。
 
-`feature/windows-1.1-moyushenqi` 分支上的 Windows 源码升级为 **1.1.0「摸鱼神器」Preview**：在原有动态壁纸之上增加连续播放条、可选资料库路径、TXT/PDF 阅读、独立网页直播同步，以及客厅电视伪装。`main` 分支保持原状，不受此分支影响。macOS 尚未做同等升级；明天在 Mac 上按 [macos/MACOS_1.1_HANDOFF.md](macos/MACOS_1.1_HANDOFF.md) 另开 `feature/macos-1.1-moyushenqi`。
+`feature/macos-1.1-moyushenqi` 把 macOS 源码升到 **2.1.0 Preview（摸鱼神器）**，与本仓库 Windows 1.1 对齐产品约定：连续播放条、引用导入、子库、TXT/MD/PDF、独立网页同步、短视频刷条、客厅伪装与老板键。**不要改 `main`，也不要把本分支合并进 `main`，除非另有明确要求。** 两边共享产品约定，不共享 UI 代码。
 
 ## 功能
 
@@ -30,29 +30,34 @@
 - “完整显示”和“填满屏幕”两种模式，始终保持原始宽高比
 - 为不同显示器分别选择壁纸
 - 收藏、搜索、切换与删除壁纸
-- 静音、无缝循环播放
 - 导入和导出可分享的动态壁纸包
 - macOS 菜单栏控制；Windows 通知区域控制与安全模式
 
-### Windows 1.1.0（本分支）
+### 1.1.0 摸鱼神器（本分支）
 
 - 播放条：播放/暂停、上一首/下一首、进度、音量、静音、倍速（1 / 1.25 / 1.5 / 2）；默认静音
 - 列表按顺序播完即停；关闭列表后当前壁纸循环
-- 资料库路径可自选；导入默认只引用原文件，不强制拷到 C 盘
-- 本地 TXT / PDF 阅读：字号、浅色/深色、手动或自动翻页，并记住位置
+- 资料库路径可自选；导入默认只引用原文件，不强制复制进资料库
+- 侧栏可新建子库；可导入一整部剧的文件夹并按文件名排好。右键子库全部导入播放台时，二次确认替换或追加；播放台可批量移除
+- 本地 TXT（UTF-8 / GB18030）、Markdown、PDF：字号、浅色/深色，并记住位置。TXT/MD 可在自动翻页和自动滚动之间切换，滚动速度可调，两者都有暂停
+- 电子书上一页 / 下一页 / 暂停可设全局快捷键（默认 Control+Option+Left / Right / Space）
 - 网页/直播：独立页面里登录、网页全屏、开关弹幕，再「同步到桌面」；桌面层不能点击
+- 短视频模式：复用电子书快捷键刷上一条 / 下一条（抖音等）。「保持清屏」在换条和同步到桌面后继续藏点赞、收藏
+- 客厅电视里的网页会略微上移，减少抖音顶部黑边，并露出底部字幕
 - 直播时播放条同步静音/音量；B 站、腾讯等点播可再控制播放与倍速
-- 独立 WebView2 配置（资料库 `WebProfile`），不读取系统 Edge Cookie，不破解 DRM
-- 客厅电视伪装：客厅背景 + 电视框；关电视冻结进度；老板键（默认 Ctrl+Alt+B）立刻隐藏
+- 独立网页配置（资料库 `WebProfile`：Windows 用 WebView2，macOS 用 `WKWebsiteDataStore`），不读取系统浏览器 Cookie，不破解 DRM
+- 客厅电视伪装：客厅背景 + 电视框；关电视冻结进度；老板键立刻隐藏（Windows 默认 Ctrl+Alt+B，macOS 默认 Control+Option+B）
 - Windows 11 Raised Desktop 下客厅背景走与视频相同的原生分层窗口，避免只剩一块浮动画面
+- macOS 用已有桌面 `NSWindow` + `AVQueuePlayer` / PDFKit / `WKWebView`，不搬 Win32、mpv IPC 或 WebView2。兼容标识 `local.baiyaoyu.dynamicwallpaperstudio`，旧资料库里已经拷过的条目不会丢
 
 ## 平台状态
 
 | 平台 | 当前源码版本 | 技术栈 | 状态 |
 |---|---:|---|---|
-| macOS | 2.0.0 | SwiftUI、AppKit、AVFoundation | macOS 15+；Apple Silicon 与 Intel |
+| macOS（本分支） | 2.1.0 Preview | SwiftUI、AppKit、AVFoundation、PDFKit、WebKit | macOS 15+；Apple Silicon 与 Intel；摸鱼神器 Preview |
+| macOS（`main`） | 2.0.0 | SwiftUI、AppKit、AVFoundation | macOS 15+；Apple Silicon 与 Intel |
 | Windows（`main`） | 1.0.5 | .NET 10 WPF、mpv、FFmpeg | Windows 11 x64 推荐；Preview |
-| Windows（本分支） | 1.1.0 | .NET 10 WPF、mpv、FFmpeg、WebView2 | Windows 11 x64 推荐；摸鱼神器 Preview |
+| Windows（本仓库） | 1.1.0 | .NET 10 WPF、mpv、FFmpeg、WebView2 | Windows 11 x64 推荐；摸鱼神器 Preview |
 
 两个版本共享产品目标，但不是同一套 UI 代码。Windows 版仍标记为 Preview：Explorer 更新、Raised Desktop、混合 DPI 或特殊多屏排列可能影响桌面嵌入。Windows 10 仅尽力兼容，不再作为正式支持目标。
 
@@ -62,7 +67,8 @@
 
 | 平台 | 下载文件 | 使用方式 |
 |---|---|---|
-| macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序” |
+| macOS（官方 Release） | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | 打开 DMG，把应用拖入“应用程序” |
+| macOS 2.1.0 | 本分支源码构建 | 从本分支按下方「从源码开始」编译；尚未作为正式 Release 替换 `main` 的 2.0.0 安装包 |
 | macOS 备用 | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | 解压后把应用拖入“应用程序” |
 | Windows（官方 Release） | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | 完整解压，运行 `DynamicWallpaperStudio.exe` |
 | Windows 1.1.0 | 本分支源码构建 | 从本分支按下方「从源码开始」编译；尚未作为正式 Release 替换 `main` 的 1.0.5 安装包 |
@@ -81,6 +87,7 @@ Windows 便携包已自带带安全更新的 .NET 10 运行环境，不需要管
 ```bash
 git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
 cd dynamic-wallpaper-studio
+git checkout feature/macos-1.1-moyushenqi
 ./macos/scripts/build.sh
 ```
 
@@ -109,11 +116,11 @@ Set-Location dynamic-wallpaper-studio
 
 长视频不会一次性全部载入内存，而是按需解码；时长主要影响磁盘空间。4K、高帧率、多屏同时播放，或编码格式不利于硬件解码时，仍会增加 CPU、GPU 与内存占用。
 
-- macOS 会把导入的原视频复制到应用资料库；选择转换分辨率时，还会保存转换后的版本。
+- 1.1 起 macOS 与 Windows 导入都默认只引用原文件；勾选复制或需要转换时，资料库才会留下播放副本。
 - Windows 对兼容的 H.264 MP4 可以只保存原文件引用；需要转换时，资料库会保存一份 H.264/YUV420P、最高 30 fps 的成品。
 - 主动导出的壁纸包是额外副本。
 
-删除或移动 Windows 引用模式下的原视频会使该壁纸失效。删除 macOS 资料库项目会删除应用管理的本地副本。
+删除或移动引用模式下的原视频会使该壁纸失效。删除已复制到资料库的条目会删除应用管理的本地副本，但不会删除引用条目的原文件。
 
 ## 隐私
 
@@ -126,6 +133,8 @@ Set-Location dynamic-wallpaper-studio
 - 当前 Windows 构建没有 Authenticode 签名，可能触发 SmartScreen。
 - Windows 开机启动只启动管理程序，目前不承诺自动恢复上一次播放。
 - 桌面嵌入依赖系统内部窗口层级，系统更新后可能需要兼容性修复。
+- 部分 Widevine 站点（例如部分腾讯视频）可能黑屏或提示换浏览器；页面会停在站点提示，不会伪装成播放成功。
+- 抖音清屏只对当前一条有效；请勾选「保持清屏」。客厅电视里的网页会略微上移以露出字幕。
 
 ## 项目结构
 

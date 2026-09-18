@@ -19,15 +19,24 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.0.0</string>
+    <string>2.1.0</string>
     <key>CFBundleVersion</key>
-    <string>200</string>
+    <string>210</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>独立网页里的直播间可能请求摄像头，只在本机网页中使用，不会上传。</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>独立网页里的直播间可能请求麦克风，只在本机网页中使用，不会上传。</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
+    </dict>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

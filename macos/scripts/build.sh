@@ -53,7 +53,6 @@ for architecture in arm64 x86_64; do
         -O \
         -whole-module-optimization \
         -module-name "$EXECUTABLE_NAME" \
-        -Xlinker -no_uuid \
         "${SOURCE_FILES[@]}" \
         -o "$STAGING_ROOT/$architecture/$EXECUTABLE_NAME"
 done
@@ -72,6 +71,9 @@ install -m 0644 "$RESOURCES_DIR/AppIcon.icns" "$STAGED_APP/Contents/Resources/Ap
 install -m 0644 "$PROJECT_DIR/LICENSE" "$STAGED_APP/Contents/Resources/LICENSE.txt"
 install -m 0644 "$PROJECT_DIR/NOTICE" "$STAGED_APP/Contents/Resources/NOTICE.txt"
 install -m 0644 "$PROJECT_DIR/THIRD_PARTY_NOTICES.md" "$STAGED_APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
+if [[ -f "$RESOURCES_DIR/LivingRoom.jpg" ]]; then
+    install -m 0644 "$RESOURCES_DIR/LivingRoom.jpg" "$STAGED_APP/Contents/Resources/LivingRoom.jpg"
+fi
 
 starter_wallpaper="${STARTER_WALLPAPER:-}"
 if [[ -z "$starter_wallpaper" && -f "$RESOURCES_DIR/StarterWallpaper.mp4" ]]; then

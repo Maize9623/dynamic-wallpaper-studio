@@ -21,7 +21,7 @@
 
 Dynamic Wallpaper Studio turns local videos into desktop backgrounds and provides one place to import, convert, favorite, assign and scale them. Media processing and the wallpaper library stay on your computer. No account or upload is required.
 
-The `feature/windows-1.1-moyushenqi` branch upgrades the Windows source to **1.1.0 “摸鱼神器” Preview**: a transport HUD, optional library path, TXT/PDF reader, isolated live/web sync, and a living-room TV camouflage. `main` is unchanged. macOS is not ported yet; implement it on a Mac from [macos/MACOS_1.1_HANDOFF.md](macos/MACOS_1.1_HANDOFF.md) on a new `feature/macos-1.1-moyushenqi` branch.
+The `feature/macos-1.1-moyushenqi` branch upgrades the macOS source to **2.1.0 Preview (“摸鱼神器”)**, matching Windows 1.1 product rules: a transport HUD, reference imports, custom sub-libraries, TXT/MD/PDF, isolated live/web sync, short-video swipe keys, living-room camouflage, and a boss key. **Do not change `main`, and do not merge this branch into `main` unless explicitly requested.** The two apps share product rules, not UI code.
 
 ## Features
 
@@ -30,29 +30,34 @@ The `feature/windows-1.1-moyushenqi` branch upgrades the Windows source to **1.1
 - Fit and Fill modes that preserve the source aspect ratio
 - Per-display wallpaper assignment
 - Favorites, search, switching and library cleanup
-- Muted seamless looping
 - Import and export of shareable wallpaper packages
 - Menu bar controls on macOS; notification area controls and safe mode on Windows
 
-### Windows 1.1.0 (this branch)
+### 1.1.0 摸鱼神器 (this branch)
 
 - Transport HUD: play/pause, previous/next, seek, volume, mute, speed (1 / 1.25 / 1.5 / 2); muted by default
 - Playlist plays in order and stops on the last item; turn playlist mode off to loop the current wallpaper
-- User-chosen library path; imports default to referencing the original file instead of copying to the C: drive
-- Local TXT / PDF reader with font size, light/dark theme, manual or auto page turns, and remembered position
+- User-chosen library path; imports default to referencing the original file
+- Custom sub-libraries: import a whole series folder, then right-click to send every video to the playlist (replace or append). The playlist can batch-remove items
+- Local TXT (UTF-8 / GB18030), Markdown, and PDF with font size, light/dark theme, and remembered position. TXT/MD can auto-turn pages or auto-scroll, with a speed slider and pause
+- Configurable global reader hotkeys (default Control+Option+Left / Right / Space)
 - Web/live: log in, enter page-fullscreen, and toggle danmaku in an independent window, then Sync to desktop; the wallpaper layer is not clickable
+- Short-video mode reuses the reader hotkeys for previous/next (Douyin-style). Keep-clean-screen hides likes/favorites again after a swipe or desktop sync
+- Web pages in the living-room TV are lifted slightly so Douyin top bars and bottom captions fit the screen
 - Live streams: HUD mute/volume apply to the page; Bilibili/Tencent-style VOD can also use play and speed
-- Isolated WebView2 profile under the library `WebProfile` folder; no system Edge cookies and no DRM circumvention
-- Living-room TV camouflage, freeze-on-TV-off, and a boss key (default Ctrl+Alt+B)
+- Isolated web profile under the library `WebProfile` folder (WebView2 on Windows, `WKWebsiteDataStore` on macOS); no system browser cookies and no DRM circumvention
+- Living-room TV camouflage, freeze-on-TV-off, and a boss key (Windows Ctrl+Alt+B, macOS Control+Option+B)
 - On Windows 11 Raised Desktop the living-room backdrop uses the same native layered path as video, so it is not just a floating rectangle
+- macOS uses the existing desktop `NSWindow` plus `AVQueuePlayer` / PDFKit / `WKWebView`; it does not port Win32, mpv IPC, or WebView2. Bundle id stays `local.baiyaoyu.dynamicwallpaperstudio` so older copied library items remain visible
 
 ## Platform status
 
 | Platform | Source version | Stack | Status |
 |---|---:|---|---|
-| macOS | 2.0.0 | SwiftUI, AppKit, AVFoundation | macOS 15+; Apple Silicon and Intel |
+| macOS (this branch) | 2.1.0 Preview | SwiftUI, AppKit, AVFoundation, PDFKit, WebKit | macOS 15+; Apple Silicon and Intel; 摸鱼神器 Preview |
+| macOS (`main`) | 2.0.0 | SwiftUI, AppKit, AVFoundation | macOS 15+; Apple Silicon and Intel |
 | Windows (`main`) | 1.0.5 | .NET 10 WPF, mpv, FFmpeg | Windows 11 x64 recommended; Preview |
-| Windows (this branch) | 1.1.0 | .NET 10 WPF, mpv, FFmpeg, WebView2 | Windows 11 x64 recommended; 摸鱼神器 Preview |
+| Windows (this repo) | 1.1.0 | .NET 10 WPF, mpv, FFmpeg, WebView2 | Windows 11 x64 recommended; 摸鱼神器 Preview |
 
 The two applications share a product goal, not a UI codebase. The Windows build remains a preview because Explorer updates, Raised Desktop, mixed DPI and unusual multi-monitor layouts can affect desktop embedding. Windows 10 is best-effort compatibility rather than a formally supported target.
 
@@ -62,7 +67,8 @@ Open the [latest release](https://github.com/Maize9623/dynamic-wallpaper-studio/
 
 | Platform | File | How to use it |
 |---|---|---|
-| macOS | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | Open the DMG and drag the app to Applications |
+| macOS (official Release) | `DynamicWallpaperStudio-macOS-2.0.0-Universal.dmg` | Open the DMG and drag the app to Applications |
+| macOS 2.1.0 | Build this branch from source | Follow “Build from source” below; this branch does not replace the 2.0.0 Release on `main` |
 | macOS alternative | `DynamicWallpaperStudio-macOS-2.0.0-Universal.zip` | Extract and drag the app to Applications |
 | Windows (official Release) | `DynamicWallpaperStudio-Windows-x64-1.0.5-OnlinePortable.zip` | Extract everything, then run `DynamicWallpaperStudio.exe` |
 | Windows 1.1.0 | Build this branch from source | Follow “Build from source” below; this branch does not replace the 1.0.5 Release on `main` |
@@ -81,6 +87,7 @@ Requires macOS 15+, Xcode 16+ and the Command Line Tools.
 ```bash
 git clone https://github.com/Maize9623/dynamic-wallpaper-studio.git
 cd dynamic-wallpaper-studio
+git checkout feature/macos-1.1-moyushenqi
 ./macos/scripts/build.sh
 ```
 
@@ -109,11 +116,11 @@ The default public build excludes FFmpeg and mpv; users consent to downloading t
 
 Long videos are decoded on demand rather than loaded wholly into memory, so duration mainly affects disk usage. 4K, high-frame-rate or multi-display playback—and formats that cannot use hardware decoding—can still increase CPU, GPU and memory use.
 
-- macOS copies every imported source into its managed library; choosing a converted resolution also creates a converted copy.
+- From 1.1, both macOS and Windows default to referencing the original file. A managed copy is created only when you opt in or when conversion is required.
 - Windows may reference a compatible H.264 MP4 in place. When conversion is required, the library stores one H.264/YUV420P output capped at 30 fps.
 - A wallpaper package you explicitly export is an additional copy.
 
-Moving or deleting a source used by Windows reference mode breaks that library item. Removing a macOS library item deletes the app-managed local copy.
+Moving or deleting a source used in reference mode breaks that library item. Removing a managed library item deletes the app-managed local copy, but not a referenced original file.
 
 ## Privacy
 
@@ -126,6 +133,8 @@ The apps have no account system, cloud sync, telemetry or media upload. Library 
 - Current Windows builds are not Authenticode signed and can trigger SmartScreen.
 - Windows launch-at-login starts the manager but does not currently promise automatic playback restoration.
 - Desktop embedding relies on system window hierarchies that can change in operating-system updates.
+- Some Widevine sites (certain Tencent Video pages) may stay black or ask for another browser; the app leaves that site message in place.
+- Douyin’s own clean-screen applies to the current item only; enable Keep clean screen. Web pages inside the living-room TV are lifted slightly so captions stay visible.
 
 ## Repository layout
 

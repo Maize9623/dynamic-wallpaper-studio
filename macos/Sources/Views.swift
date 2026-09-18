@@ -7,34 +7,18 @@ struct MainView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 240)
-        } detail: {
-            Group {
-                if model.filter == .settings {
-                    SettingsView()
-                } else {
-                    LibraryView()
-                }
+        VStack(spacing: 0) {
+            NavigationSplitView {
+                SidebarView()
+                    .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 260)
+            } detail: {
+                detailPane
+                    .frame(minWidth: 620, minHeight: 480)
             }
-            .frame(minWidth: 620, minHeight: 520)
+            PlaybackBar()
         }
-        .frame(minWidth: 820, minHeight: 560)
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                TextField("搜索壁纸", text: $model.searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 190)
-                Button {
-                    model.openImportPanel()
-                } label: {
-                    Label("导入视频", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut("o", modifiers: .command)
-            }
-        }
+        .frame(minWidth: 1000, minHeight: 640)
+        .toolbar { toolbarItems }
         .onDrop(
             of: [UTType.fileURL.identifier],
             isTargeted: $model.isDropTarget,
@@ -51,35 +35,33 @@ struct MainView: View {
                 ProgressOverlayView(progress: progress)
             }
         }
-        .sheet(item: $model.pendingImport) { candidate in
-            ImportSheet(candidate: candidate)
-                .environmentObject(model)
+        .modifier(StudioDialogsModifier())
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        if model.filter == .settings {
+            SettingsView()
+        } else if model.filter.isStudio {
+            StudioHostView()
+        } else {
+            LibraryView()
         }
-        .alert(item: $model.alert) { alert in
-            Alert(
-                title: Text(alert.title),
-                message: Text(alert.message),
-                dismissButton: .default(Text("好"))
-            )
-        }
-        .alert(
-            "删除这张动态壁纸？",
-            isPresented: Binding(
-                get: { model.pendingDeletion != nil },
-                set: { if !$0 { model.pendingDeletion = nil } }
-            ),
-            presenting: model.pendingDeletion
-        ) { item in
-            Button("取消", role: .cancel) {
-                model.pendingDeletion = nil
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            TextField("搜索壁纸", text: $model.searchText)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 190)
+            Button {
+                model.openImportPanel()
+            } label: {
+                Label("导入视频 / 书", systemImage: "plus")
             }
-            Button(model.isActive(item) ? "删除并切换" : "删除", role: .destructive) {
-                model.confirmDelete(item)
-            }
-        } message: { item in
-            Text(model.isActive(item)
-                 ? "“\(item.name)”正在使用。删除后将切换到资料库中的下一张壁纸。"
-                 : "“\(item.name)”及其本地副本将被移除，此操作无法撤销。")
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut("o", modifiers: .command)
         }
     }
 
@@ -110,6 +92,165 @@ struct MainView: View {
     }
 }
 
+private struct StudioDialogsModifier: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $model.pendingImport) { candidate in
+                ImportSheet(candidate: candidate)
+                    .environmentObject(model)
+            }
+            .alert(item: $model.alert) { alert in
+                Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    dismissButton: .default(Text("好"))
+                )
+            }
+            .modifier(StudioConfirmationsModifier())
+    }
+}
+
+private struct StudioConfirmationsModifier: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+
+    func body(content: Content) -> some View {
+        content
+            .alert(
+                "删除这张动态壁纸？",
+                isPresented: Binding(
+                    get: { model.pendingDeletion != nil },
+                    set: { if !$0 { model.pendingDeletion = nil } }
+                ),
+                presenting: model.pendingDeletion
+            ) { item in
+                Button("取消", role: .cancel) {
+                    model.pendingDeletion = nil
+                }
+                Button(model.isActive(item) ? "删除并切换" : "删除", role: .destructive) {
+                    model.confirmDelete(item)
+                }
+            } message: { item in
+                Text(deleteMessage(for: item))
+            }
+            .sheet(item: Binding(
+                get: { model.pendingBookImport },
+                set: { if $0 == nil { model.cancelBookImport() } }
+            )) { pending in
+                BookImportSheet(pending: pending)
+                    .environmentObject(model)
+            }
+            .sheet(item: Binding(
+                get: { model.pendingFolderImport },
+                set: { if $0 == nil { model.cancelFolderImport() } }
+            )) { pending in
+                FolderImportSheet(pending: pending)
+                    .environmentObject(model)
+            }
+            .modifier(StudioFolderDialogsModifier())
+    }
+
+    private func deleteMessage(for item: WallpaperItem) -> String {
+        if item.isReference {
+            return "只删除资料库记录和封面，不会删除原视频。"
+        }
+        return model.isActive(item)
+            ? "“\(item.name)”正在使用。删除后将切换到资料库中的下一张壁纸。"
+            : "“\(item.name)”及其本地副本将被移除，此操作无法撤销。"
+    }
+}
+
+private struct StudioFolderDialogsModifier: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(
+                "导入到播放台",
+                isPresented: Binding(
+                    get: { model.pendingPlaylistImport != nil },
+                    set: { if !$0 { model.cancelPlaylistImport() } }
+                ),
+                titleVisibility: .visible,
+                presenting: model.pendingPlaylistImport
+            ) { pending in
+                Button("替换当前播放台") {
+                    model.confirmPlaylistImport(replace: true)
+                }
+                Button("追加到播放台后面") {
+                    model.confirmPlaylistImport(replace: false)
+                }
+                Button("取消", role: .cancel) {
+                    model.cancelPlaylistImport()
+                }
+            } message: { pending in
+                Text(playlistImportMessage(pending))
+            }
+            .alert("新建子库", isPresented: $model.isCreatingFolder) {
+                TextField("例如：这部剧的名字", text: $model.draftFolderName)
+                Button("创建") { model.confirmCreateFolder() }
+                Button("取消", role: .cancel) {
+                    model.isCreatingFolder = false
+                    model.draftFolderName = ""
+                }
+            } message: {
+                Text("子库会出现在收藏下面。导入一整个文件夹时也会自动建一个。")
+            }
+            .alert(
+                "重命名子库",
+                isPresented: Binding(
+                    get: { model.pendingFolderRename != nil },
+                    set: { if !$0 { model.pendingFolderRename = nil } }
+                )
+            ) {
+                TextField("名称", text: $model.draftFolderName)
+                Button("保存") { model.confirmRenameFolder() }
+                Button("取消", role: .cancel) {
+                    model.pendingFolderRename = nil
+                    model.draftFolderName = ""
+                }
+            }
+            .alert(
+                "删除这个子库？",
+                isPresented: Binding(
+                    get: { model.pendingFolderDeletion != nil },
+                    set: { if !$0 { model.pendingFolderDeletion = nil } }
+                ),
+                presenting: model.pendingFolderDeletion
+            ) { folder in
+                Button("取消", role: .cancel) { model.pendingFolderDeletion = nil }
+                Button("删除子库", role: .destructive) { model.confirmDeleteFolder(folder) }
+            } message: { folder in
+                Text("「\(folder.name)」只是分组。里面的视频仍留在全部壁纸里，不会删文件。")
+            }
+            .alert(
+                "删除这条电子书记录？",
+                isPresented: Binding(
+                    get: { model.pendingBookDeletion != nil },
+                    set: { if !$0 { model.pendingBookDeletion = nil } }
+                ),
+                presenting: model.pendingBookDeletion
+            ) { book in
+                Button("取消", role: .cancel) { model.pendingBookDeletion = nil }
+                Button("删除", role: .destructive) { model.confirmDeleteBook(book) }
+            } message: { book in
+                Text(book.isManagedCopy
+                     ? "“\(book.name)”的资料库副本将被删除，原文件若还在别处则不受影响。"
+                     : "只删除资料库记录，不会删除原文件。")
+            }
+    }
+
+    private func playlistImportMessage(_ pending: PendingPlaylistImport) -> String {
+        let incoming = pending.itemIDs.count
+        let current = model.playlistItems.count
+        if current == 0 {
+            return "把「\(pending.folderName)」的 \(incoming) 个视频放到播放台，按子库顺序连续播放。"
+        }
+        return "「\(pending.folderName)」有 \(incoming) 个视频。当前播放台已有 \(current) 条：替换会清空后再放入，追加会接到现有列表后面（已在列表里的不会重复）。"
+    }
+}
+
 struct SidebarView: View {
     @EnvironmentObject private var model: AppModel
 
@@ -119,6 +260,45 @@ struct SidebarView: View {
                 sidebarRow("全部壁纸", symbol: "photo.stack", count: model.state.wallpapers.count, value: .all)
                 sidebarRow("收藏", symbol: "heart", count: model.state.wallpapers.filter(\.isFavorite).count, value: .favorites)
                 sidebarRow("最近导入", symbol: "clock", value: .recent)
+            }
+
+            Section("子库") {
+                ForEach(model.state.folders) { folder in
+                    sidebarRow(
+                        folder.name,
+                        symbol: "folder",
+                        count: folder.itemIDs.count,
+                        value: .folder(folder.id)
+                    )
+                    .contextMenu {
+                        Button("全部导入播放台…") {
+                            model.requestPlaylistImport(from: folder)
+                        }
+                        Button("导入视频到此子库…") {
+                            model.openImportPanel(into: folder.id)
+                        }
+                        Button("重命名…") {
+                            model.beginRenameFolder(folder)
+                        }
+                        Divider()
+                        Button("删除子库…", role: .destructive) {
+                            model.requestDeleteFolder(folder)
+                        }
+                    }
+                }
+                Button {
+                    model.beginCreateFolder()
+                } label: {
+                    Label("新建子库", systemImage: "folder.badge.plus")
+                }
+                .buttonStyle(.plain)
+            }
+
+            Section("摸鱼台") {
+                sidebarRow("播放台", symbol: "play.square.stack", value: .player)
+                sidebarRow("电子书", symbol: "book", count: model.state.books.count, value: .reader)
+                sidebarRow("网页直播", symbol: "dot.radiowaves.left.and.right", value: .web)
+                sidebarRow("客厅伪装", symbol: "tv", value: .scene)
             }
 
             Section("显示器") {
@@ -144,14 +324,20 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(model.isPaused ? Color.orange : Color.green)
-                    .frame(width: 8, height: 8)
-                Text(model.isPaused ? "动态壁纸已暂停" : "动态壁纸正在运行")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                Button(model.isWallpaperEnabled ? "关闭动态壁纸" : "启动动态壁纸") {
+                    model.toggleWallpaperEnabled()
+                }
+                .controlSize(.small)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -171,6 +357,19 @@ struct SidebarView: View {
             }
         }
         .tag(value)
+    }
+
+    private var statusColor: Color {
+        if !model.isWallpaperEnabled { return .gray }
+        if model.isContentHidden { return .orange }
+        return model.isPaused ? .orange : .green
+    }
+
+    private var statusText: String {
+        if !model.isWallpaperEnabled { return "动态壁纸已关闭" }
+        if model.state.settings.bossHidden { return "老板键已隐藏" }
+        if model.state.settings.televisionOff { return "电视已关闭" }
+        return model.isPaused ? "动态壁纸已暂停" : "动态壁纸正在运行"
     }
 }
 
@@ -212,7 +411,7 @@ struct LibraryView: View {
                     .frame(width: 292)
             }
         }
-        .navigationTitle(model.filter.title)
+        .navigationTitle(model.filterTitle)
     }
 }
 
@@ -293,8 +492,25 @@ struct WallpaperCard: View {
             Button("设为动态壁纸") {
                 model.setWallpaper(item, targetDisplayID: displayIDFromFilter)
             }
+            Button("加入播放列表") {
+                model.addToPlaylist(item)
+            }
             Button(item.isFavorite ? "移出收藏" : "加入收藏") {
                 model.toggleFavorite(item)
+            }
+            if !model.state.folders.isEmpty {
+                Menu("加入子库") {
+                    ForEach(model.state.folders) { folder in
+                        Button(folder.name) {
+                            model.addWallpaper(item, toFolder: folder.id)
+                        }
+                    }
+                }
+            }
+            if case .folder(let folderID) = model.filter {
+                Button("从子库移除") {
+                    model.removeFromFolder(item, folderID: folderID)
+                }
             }
             Divider()
             Button("导出壁纸包…") { model.exportPackage(item) }
@@ -359,6 +575,16 @@ struct WallpaperInspector: View {
                         .foregroundStyle(.green)
                         .font(.subheadline.weight(.medium))
                 }
+                if item.isReference {
+                    Label("引用原文件，删除记录不会动原视频", systemImage: "link")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !item.hasAudio {
+                    Text("这份视频没有音轨。旧转换成品可能丢了声音，需要重新导入原视频才能出声。")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("应用到")
@@ -401,6 +627,21 @@ struct WallpaperInspector: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+
+                Button("加入播放列表") { model.addToPlaylist(item) }
+                    .frame(maxWidth: .infinity)
+
+                if !model.state.folders.isEmpty {
+                    Picker("子库", selection: Binding(
+                        get: { model.foldersContaining(item).first?.id },
+                        set: { model.assign(item, toFolder: $0) }
+                    )) {
+                        Text("不在子库").tag(Optional<UUID>.none)
+                        ForEach(model.state.folders) { folder in
+                            Text(folder.name).tag(Optional(folder.id))
+                        }
+                    }
+                }
 
                 HStack {
                     Button("导出…") { model.exportPackage(item) }
@@ -460,6 +701,9 @@ struct EmptyLibraryView: View {
             if model.filter == .all || model.filter == .recent {
                 Button("导入视频") { model.openImportPanel() }
                     .buttonStyle(.borderedProminent)
+            } else if case .folder(let id) = model.filter {
+                Button("导入视频到此子库") { model.openImportPanel(into: id) }
+                    .buttonStyle(.borderedProminent)
             }
         }
     }
@@ -468,6 +712,7 @@ struct EmptyLibraryView: View {
         switch model.filter {
         case .favorites: return "还没有收藏"
         case .display: return "这台显示器尚未设置壁纸"
+        case .folder: return "这个子库还是空的"
         default: return "制作你的第一张动态壁纸"
         }
     }
@@ -476,12 +721,17 @@ struct EmptyLibraryView: View {
         switch model.filter {
         case .favorites: return "点击壁纸卡片上的心形按钮，以后就能快速切换。"
         case .display: return "从全部壁纸中选择一张并应用到这台显示器。"
-        default: return "把 MP4、MOV 或 M4V 视频拖到这里，视频只保存在本机。"
+        case .folder: return "导入一整个剧集文件夹，或把已有壁纸加入这个子库。右键侧栏子库可全部导入播放台。"
+        default: return "把 MP4、MOV、M4V、TXT、Markdown 或 PDF 拖到这里。也可以拖一个装满剧集的文件夹，会自动建成子库。默认只引用原文件，视频和书都只保存在本机。"
         }
     }
 
     private var emptySymbol: String {
-        model.filter == .favorites ? "heart" : "photo.stack"
+        switch model.filter {
+        case .favorites: return "heart"
+        case .folder: return "folder"
+        default: return "photo.stack"
+        }
     }
 }
 
@@ -497,9 +747,9 @@ struct DropOverlayView: View {
                 Image(systemName: "arrow.down.doc.fill")
                     .font(.system(size: 48))
                     .foregroundStyle(Color.accentColor)
-                Text("松开以导入视频")
+                Text("松开以导入视频、书或整个文件夹")
                     .font(.title2.weight(.semibold))
-                Text("支持 MP4、MOV、M4V 和 .dwallpaper\n视频只保存在这台 Mac，不会上传")
+                Text("支持 MP4、MOV、M4V、TXT、MD、PDF、.dwallpaper\n拖入剧集文件夹会建成子库，默认只引用原文件")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }
@@ -546,12 +796,14 @@ struct ImportSheet: View {
     @State private var applyAfterImport = true
     @State private var favorite = false
     @State private var targetDisplayID = "all"
+    @State private var copyToLibrary = false
 
     init(candidate: ImportCandidate) {
         self.candidate = candidate
         _name = State(initialValue: candidate.suggestedName)
         _customWidth = State(initialValue: candidate.metadata.width)
         _customHeight = State(initialValue: candidate.metadata.height)
+        _copyToLibrary = State(initialValue: AppModel.shared.state.settings.importMode == .copyToLibrary)
     }
 
     var body: some View {
@@ -618,6 +870,7 @@ struct ImportSheet: View {
                         .foregroundStyle(.secondary)
 
                     Toggle("加入收藏", isOn: $favorite)
+                    Toggle("复制到资料库（默认只引用原文件）", isOn: $copyToLibrary)
                     if targetDisplayID != "none" {
                         Toggle("导入后立即设为壁纸", isOn: $applyAfterImport)
                     }
@@ -645,7 +898,8 @@ struct ImportSheet: View {
                             aspectMode: aspectMode,
                             applyAfterImport: targetDisplayID != "none" && applyAfterImport,
                             favorite: favorite,
-                            targetDisplayID: targetDisplayID == "all" || targetDisplayID == "none" ? nil : targetDisplayID
+                            targetDisplayID: targetDisplayID == "all" || targetDisplayID == "none" ? nil : targetDisplayID,
+                            copyToLibrary: copyToLibrary
                         )
                         dismiss()
                         model.confirmImport(candidate: candidate, options: options)
@@ -787,7 +1041,7 @@ struct SettingsView: View {
                         "锁定 Mac 时暂停",
                         isOn: settingBinding(\.pauseOnSessionLock)
                     )
-                    Text("所有动态壁纸始终静音循环播放，唤醒后会从暂停状态恢复。")
+                    Text("关电视或老板键隐藏时，睡眠唤醒后不会自动恢复画面。默认静音，音量由播放条控制。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -802,11 +1056,50 @@ struct SettingsView: View {
                         }
                         Spacer()
                         Button("在 Finder 中显示") { model.revealLibrary() }
+                        Button("选择资料库文件夹") { model.relocateLibrary() }
                     }
                     Text(model.store.baseURL.path)
                         .font(.caption2.monospaced())
                         .foregroundStyle(.tertiary)
                         .textSelection(.enabled)
+                    Toggle(
+                        "导入时默认复制到资料库（仍可在导入窗口改）",
+                        isOn: Binding(
+                            get: { model.state.settings.importMode == .copyToLibrary },
+                            set: { model.setImportMode($0 ? .copyToLibrary : .reference) }
+                        )
+                    )
+                    Text("默认只引用原文件。删除引用条目只会去掉记录和封面。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                SettingsGroup(title: "老板键", symbol: "eye.slash") {
+                    Toggle(
+                        "启用全局老板键",
+                        isOn: Binding(
+                            get: { model.state.settings.bossHotkeyEnabled },
+                            set: { model.setBossHotkey(gesture: model.draftBossHotkey, enabled: $0) }
+                        )
+                    )
+                    HStack {
+                        TextField("Control+Option+B", text: $model.draftBossHotkey)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 180)
+                        Button("应用") {
+                            model.setBossHotkey(gesture: model.draftBossHotkey, enabled: model.state.settings.bossHotkeyEnabled)
+                        }
+                    }
+                    Text("默认 Control+Option+B，对标 Windows 的 Ctrl+Alt+B。这是展示切换，不是对抗监控。隐藏状态优先于睡眠唤醒后的自动恢复。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                SettingsGroup(title: "电子书快捷键", symbol: "keyboard") {
+                    ReaderHotkeyEditor()
+                    Text("电子书面板里也能改。暂停键同时作用于自动翻页和自动滚动。网页勾了短视频模式时，上一页 / 下一页会变成刷抖音的上一条 / 下一条。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 SettingsGroup(title: "关于", symbol: "info.circle") {
@@ -815,14 +1108,14 @@ struct SettingsView: View {
                             .font(.system(size: 38))
                             .foregroundStyle(Color.accentColor)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("动态壁纸工作室")
+                            Text("摸鱼神器 · 动态壁纸工作室")
                                 .font(.headline)
-                            Text("版本 2.0 · 本地处理 · 不上传视频")
+                            Text("版本 2.1.0 Preview · 本地处理 · 不上传")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Text("支持 MP4、MOV、M4V、收藏切换、多显示器、不同输出分辨率和便携壁纸包。")
+                    Text("视频、TXT/Markdown/PDF、独立网页同步和客厅伪装都在本机完成。桌面层不接收鼠标和键盘。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

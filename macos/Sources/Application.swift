@@ -10,9 +10,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let root = MainView().environmentObject(model)
         let hosting = NSHostingController(rootView: root)
         let window = NSWindow(contentViewController: hosting)
-        window.title = "动态壁纸工作室"
-        window.setContentSize(NSSize(width: 1000, height: 720))
-        window.minSize = NSSize(width: 820, height: 560)
+        window.title = "摸鱼神器 · 动态壁纸工作室"
+        window.setContentSize(NSSize(width: 1180, height: 760))
+        window.minSize = NSSize(width: 1000, height: 640)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -38,6 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let model = AppModel.shared
     private var mainWindowController: MainWindowController?
     private var statusItem: NSStatusItem?
+    private let bossHotkey = BossHotkeyService()
+    private var playbackTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -52,7 +54,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onOpenWindow = { [weak self] in
             self?.showMainWindow()
         }
+        model.onHotkeyChange = { [weak self] in
+            self?.applyHotkeys()
+        }
         model.start()
+        applyHotkeys()
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.model.pollPlayback()
+            }
+        }
 
         let launchedInBackground = ProcessInfo.processInfo.arguments.contains("--background")
         if !launchedInBackground {
@@ -61,6 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+        bossHotkey.unregister()
         model.applicationWillTerminate()
     }
 
@@ -89,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let applicationItem = NSMenuItem()
         let applicationMenu = NSMenu()
-        applicationMenu.addItem(withTitle: "关于动态壁纸工作室", action: #selector(openAbout), keyEquivalent: "")
+        applicationMenu.addItem(withTitle: "关于摸鱼神器", action: #selector(openAbout), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "隐藏动态壁纸工作室", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         applicationMenu.addItem(.separator())
@@ -99,7 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let fileItem = NSMenuItem()
         let fileMenu = NSMenu(title: "文件")
-        let importItem = NSMenuItem(title: "导入视频…", action: #selector(openImport), keyEquivalent: "o")
+        let importItem = NSMenuItem(title: "导入视频或电子书…", action: #selector(openImport), keyEquivalent: "o")
         importItem.keyEquivalentModifierMask = .command
         fileMenu.addItem(importItem)
         fileMenu.addItem(.separator())
@@ -138,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             systemSymbolName: "photo.on.rectangle.angled",
             accessibilityDescription: "动态壁纸工作室"
         )
-        item.button?.toolTip = "动态壁纸工作室"
+        item.button?.toolTip = "摸鱼神器 · 动态壁纸工作室"
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
@@ -170,6 +184,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ))
         menu.addItem(actionItem("上一张收藏", action: #selector(previousFavorite), symbol: "backward.end.fill"))
         menu.addItem(actionItem("下一张收藏", action: #selector(nextFavorite), symbol: "forward.end.fill"))
+        menu.addItem(actionItem(
+            model.state.settings.audioMuted ? "取消静音" : "静音",
+            action: #selector(toggleMute),
+            symbol: model.state.settings.audioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        ))
+        menu.addItem(actionItem(
+            model.state.settings.televisionOff ? "打开电视" : "关电视",
+            action: #selector(toggleTelevision),
+            symbol: "tv"
+        ))
+        menu.addItem(actionItem(
+            model.state.settings.bossHidden ? "恢复桌面内容" : "老板键隐藏",
+            action: #selector(toggleBoss),
+            symbol: "eye.slash"
+        ))
 
         let modeItem = NSMenuItem(title: "画面适配", action: nil, keyEquivalent: "")
         let modeMenu = NSMenu()
@@ -184,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(actionItem("打开动态壁纸工作室…", action: #selector(showMainWindow), symbol: "photo.stack"))
-        menu.addItem(actionItem("导入视频…", action: #selector(openImport), symbol: "plus"))
+        menu.addItem(actionItem("导入视频或电子书…", action: #selector(openImport), symbol: "plus"))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "退出动态壁纸工作室", action: #selector(quitApp), keyEquivalent: "q"))
     }
@@ -207,6 +236,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func togglePause() { model.togglePause() }
     @objc private func previousFavorite() { model.switchFavorite(direction: -1) }
     @objc private func nextFavorite() { model.switchFavorite(direction: 1) }
+    @objc private func toggleMute() { model.toggleMuted() }
+    @objc private func toggleTelevision() { model.toggleTelevision() }
+    @objc private func toggleBoss() { model.toggleBossKey() }
+
+    private func applyHotkeys() {
+        bossHotkey.onAction = { [weak self] action in
+            guard let self else { return }
+            switch action {
+            case .boss:
+                self.model.toggleBossKey()
+            case .readerPrev:
+                self.model.handleSharedAdvanceHotkey(next: false)
+            case .readerNext:
+                self.model.handleSharedAdvanceHotkey(next: true)
+            case .readerPause:
+                self.model.handleSharedPauseHotkey()
+            }
+        }
+        do {
+            try bossHotkey.apply([
+                (.boss, model.state.settings.bossHotkey, model.state.settings.bossHotkeyEnabled),
+                (.readerPrev, model.state.settings.readerPreviousHotkey, model.state.settings.readerHotkeysEnabled),
+                (.readerNext, model.state.settings.readerNextHotkey, model.state.settings.readerHotkeysEnabled),
+                (.readerPause, model.state.settings.readerPauseHotkey, model.state.settings.readerHotkeysEnabled)
+            ])
+        } catch {
+            model.alert = StudioAlert(title: "无法注册快捷键", message: error.localizedDescription)
+        }
+    }
     @objc private func selectFit() { model.setAspectMode(.fit) }
     @objc private func selectFill() { model.setAspectMode(.fill) }
     @objc private func quitApp() { model.quit() }
@@ -257,6 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func screensDidWake() {
         guard model.state.settings.pauseOnDisplaySleep else { return }
+        if model.isContentHidden { return }
         model.systemPause(false)
     }
 
@@ -267,6 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func sessionDidBecomeActive() {
         guard model.state.settings.pauseOnSessionLock else { return }
+        if model.isContentHidden { return }
         model.systemPause(false)
     }
 }
